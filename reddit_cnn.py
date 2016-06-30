@@ -22,6 +22,7 @@ from keras.utils.visualize_util import plot
 # TODO: better cleaning, this is _actually_ important
 
 # Parameters
+# TODO: num_filters ?, filter_length ?, hidden_dims
 qry_lmt = 10000
 vocab_size = 5000
 embedding_dims = 100
@@ -36,7 +37,6 @@ batch_size = 32
 epochs = 5            # number of training epochs
 
 # Getting the data
-
 print("Querying db...")
 
 with open('subreddits.txt', 'r') as f:
@@ -45,6 +45,7 @@ with open('subreddits.txt', 'r') as f:
 
 sql_conn = sqlite3.connect("database.sqlite")
 
+# TODO: actually more than 1 subreddit?
 some_data = sql_conn.execute("SELECT subreddit, body, score FROM May2015\
                               WHERE subreddit IN (%s)\
                               LIMIT " % subreddits + str(qry_lmt))
@@ -77,7 +78,6 @@ nn = Sequential()
 # TODO: weights initialize
 nn.add(Embedding(input_dim=vocab_size, output_dim=embedding_dims,
                  input_length=paddedlength))
-# TODO: dropout layer
 nn.add(Dropout(0.5))
 
 # Convolutions TODO: init, activation
@@ -87,6 +87,7 @@ nn.add(MaxPooling1D(pool_length=2))
 
 nn.add(Flatten())
 
+# TODO: wieso 2 dense layers?
 nn.add(Dense(hidden_dimsa))
 nn.add(Dropout(0.25))
 nn.add(Activation('relu'))
@@ -104,4 +105,6 @@ plot(nn, to_file='model.png')
 nn.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
        validation_data=(X_test, Y_test))
 results = nn.evaluate(X_test, Y_test, verbose=0)
+# TODO: wieviel accuracy ist gut?
+# TODO: crossvalidation / prediction
 print(results)
