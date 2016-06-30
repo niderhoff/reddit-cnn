@@ -9,6 +9,7 @@ from __future__ import print_function
 import sqlite3
 import re
 import numpy as np
+
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
 from sklearn.cross_validation import train_test_split
@@ -18,12 +19,13 @@ from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.utils.visualize_util import plot
 
-
-# TODO: better cleaning, this is _actually_ important
+np.random.seed(2222)
+# TODO: data cleaning, this is _actually_ important
+# at the moment, we only strip special chars via tokenizer
 
 # Parameters
 # TODO: num_filters ?, filter_length ?, hidden_dims
-qry_lmt = 10000
+qry_lmt = 25000
 vocab_size = 5000
 embedding_dims = 100
 paddedlength = 100  # length to which each sentence is padded
