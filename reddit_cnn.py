@@ -25,7 +25,7 @@ np.random.seed(2222)
 
 # Parameters
 # TODO: num_filters ?, filter_length ?, hidden_dims
-qry_lmt = 25000
+qry_lmt = 30000
 vocab_size = 5000
 embedding_dims = 100
 paddedlength = 100  # length to which each sentence is padded
@@ -36,7 +36,7 @@ hidden_dimsa = 250    # number of output neurons for the first Dense layer
 hidden_dimsb = 100    # number of output neurons for the second Dense layer
 
 batch_size = 32
-epochs = 5            # number of training epochs
+epochs = 15            # number of training epochs
 
 # Getting the data
 print("Querying db...")
@@ -71,6 +71,11 @@ X = sequence.pad_sequences(seq, maxlen=paddedlength)
 Y = np.asarray(labels)
 Y = Y > 0
 Y.astype(int)
+
+X2 = X[25000:, ]
+Y2 = Y[25000:, ]
+X = X[:25000, ]
+Y = Y[:25000, ]
 
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 print(X_train.shape)
@@ -110,3 +115,7 @@ results = nn.evaluate(X_test, Y_test, verbose=0)
 # TODO: wieviel accuracy ist gut?
 # TODO: crossvalidation / prediction
 print(results)
+
+print("Validating using secondary test set")
+results2 = nn.evaluate(X2, Y2, verbose=0)
+print(results2)
