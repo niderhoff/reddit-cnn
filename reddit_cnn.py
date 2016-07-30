@@ -1,10 +1,24 @@
-'''
-    This will read some posts from reddit database and train a convolutional
-    neural network on them with 1 convolutional layer using keras/theano.
-    So far, this is just using the imdb.py example from keras and inputting
-    the reddit data, but will update the model architecture to fit the data
-    better soon.
-'''
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Reddit CNN.
+
+This will read some posts from reddit database and train a convolutional
+neural network on them with 1 convolutional layer using keras/theano.
+So far, this is just using the imdb.py example from keras and inputting
+the reddit data, but will update the model architecture to fit the data
+better soon.
+
+Usage:
+    $ python reddit_cnn.py
+
+TODO:
+    * data cleaning, this is _actually_ important
+    * num_fulters, filter_length, hidden_dims
+    * actually more than 1 subreddit?
+    * init, activation
+"""
+
 from __future__ import print_function
 import sqlite3
 import re
@@ -20,11 +34,9 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.utils.visualize_util import plot
 
 np.random.seed(2222)
-# TODO: data cleaning, this is _actually_ important
 # at the moment, we only strip special chars via tokenizer
 
 # Parameters
-# TODO: num_filters ?, filter_length ?, hidden_dims
 qry_lmt = 30000
 vocab_size = 5000
 embedding_dims = 100
@@ -47,7 +59,6 @@ with open('subreddits.txt', 'r') as f:
 
 sql_conn = sqlite3.connect("database.sqlite")
 
-# TODO: actually more than 1 subreddit?
 some_data = sql_conn.execute("SELECT subreddit, body, score FROM May2015\
                               WHERE subreddit IN (%s)\
                               LIMIT " % subreddits + str(qry_lmt))
@@ -87,14 +98,13 @@ nn.add(Embedding(input_dim=vocab_size, output_dim=embedding_dims,
                  input_length=paddedlength))
 nn.add(Dropout(0.5))
 
-# Convolutions TODO: init, activation
+# Convolution
 nn.add(Convolution1D(num_filters, filter_length, activation="relu"))
 
 nn.add(MaxPooling1D(pool_length=2))
 
 nn.add(Flatten())
 
-# TODO: wieso 2 dense layers?
 nn.add(Dense(hidden_dimsa))
 nn.add(Dropout(0.25))
 nn.add(Activation('relu'))
@@ -112,8 +122,7 @@ plot(nn, to_file='model.png')
 nn.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
        validation_data=(X_test, Y_test))
 results = nn.evaluate(X_test, Y_test, verbose=0)
-# TODO: wieviel accuracy ist gut?
-# TODO: crossvalidation / prediction
+
 print(results)
 
 print("Validating using secondary test set")
