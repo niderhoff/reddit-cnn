@@ -32,7 +32,7 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.regularizers import l2
 from keras.utils.visualize_util import plot
 
-import preprocess
+import preprocess as pre
 
 # ---------- Parameters ----------
 np.random.seed(2222)
@@ -52,9 +52,9 @@ epochs = 5           # number of training epochs
 qry_lmt = 30000
 
 # ---------- Get the data corpus ----------
-db = preprocess.db_conn()
-data = preprocess.db_query(db, preprocess.subreddits(), qry_lmt)
-raw_corpus, corpus, labels, strata = preprocess.get_corpus(data)
+db = pre.db_conn()
+data = pre.db_query(db, pre.subreddits(), qry_lmt)
+raw_corpus, corpus, labels, strata = pre.get_corpus(data)
 
 # ---------- Preparing the data matrices ----------
 print("Creating train/test split")
