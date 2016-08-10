@@ -13,15 +13,13 @@ Usage:
     $ python reddit_cnn.py
 
 TODO:
-    * data cleaning, this is _actually_ important
-    * num_filters, filter_length, hidden_dims
-    * actually more than 1 subreddit?
-    * init, activation
+    *  data cleaning, this is _actually_ important
+    *  num_filters, filter_length, hidden_dims
+    *  actually more than 1 subreddit?
+    *  init, activation
 """
 
 from __future__ import print_function
-import sqlite3
-import re
 import numpy as np
 
 from keras.preprocessing.text import Tokenizer
@@ -34,10 +32,11 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.regularizers import l2
 from keras.utils.visualize_util import plot
 
+import preprocess
+
 # ---------- Parameters ----------
 np.random.seed(2222)
 
-qry_lmt = 30000
 vocab_size = 5000
 embedding_dims = 100
 paddedlength = 100   # length to which each sentence is padded
@@ -50,34 +49,12 @@ hidden_dimsb = 100   # number of output neurons for the second Dense layer
 batch_size = 32      # TODO: which batch size is appropriate
 epochs = 5           # number of training epochs
 
-# ---------- Reading the reddit data ----------
-# TODO: outsource to a nice wrapper
-print("Querying db...")
+qry_lmt = 30000
 
-# Read a list of subreddits that are supposed to be used from a file.
-# This helps narrowing down the data to more frequent/appropriate subreddits.
-with open('subreddits.txt', 'r') as f:
-    l = f.read().splitlines()
-    subreddits = ', '.join("'{0}'".format(s) for s in l)
-
-sql_conn = sqlite3.connect("database.sqlite")
-
-# TODO: randomize selection properly instead of taking the first x always
-#       from the same subreddit
-some_data = sql_conn.execute("SELECT subreddit, body, score FROM May2015\
-                              WHERE subreddit IN (%s)\
-                              LIMIT " % subreddits + str(qry_lmt))
-
-print("Building corpus...")
-raw_corpus, corpus, labels, strata = [], [], [], []
-
-# TODO: insert proper data cleaning routine here
-for post in some_data:
-    raw_corpus.append(re.sub('\n', '', post[1]))
-    cln_post = re.sub('[^A-Za-z0-9\.\,]+', ' ', post[1]).strip().lower()
-    corpus.append(str(cln_post))
-    labels.append(post[2])
-    strata.append(post[0])
+# ---------- Get the data corpus ----------
+db = preprocess.db_conn()
+data = preprocess.db_query(db, preprocess.subreddits(), qry_lmt)
+raw_corpus, corpus, labels, strata = preprocess.get_corpus(data)
 
 # ---------- Preparing the data matrices ----------
 print("Creating train/test split")
