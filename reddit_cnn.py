@@ -35,7 +35,7 @@ from keras.utils.visualize_util import plot
 import preprocess as pre
 
 # ---------- Parameters ----------
-np.random.seed(2222)
+# np.random.seed(2222)
 
 vocab_size = 5000
 embedding_dims = 100
@@ -59,9 +59,9 @@ raw_corpus, corpus, labels, strata = pre.get_corpus(data)
 # ---------- Preparing the data matrices ----------
 print("Creating train/test split")
 
-tokenizer = Tokenizer(nb_words=vocab_size)
-tokenizer.fit_on_texts(corpus)
-seq = tokenizer.texts_to_sequences(corpus)
+tokenized = Tokenizer(nb_words=vocab_size)
+tokenized.fit_on_texts(corpus)
+seq = tokenized.texts_to_sequences(corpus)
 
 X = sequence.pad_sequences(seq, maxlen=paddedlength)
 

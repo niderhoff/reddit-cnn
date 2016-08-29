@@ -3,8 +3,6 @@
 '''
 
 from __future__ import print_function
-import sqlite3
-import re
 import numpy as np
 
 from keras.preprocessing.text import Tokenizer
@@ -16,7 +14,7 @@ from keras.regularizers import l2
 from keras.optimizers import SGD
 from sklearn.cross_validation import train_test_split
 from sklearn.linear_model import LogisticRegressionCV
-
+import preprocess.py
 
 np.random.seed(2222)
 
@@ -26,30 +24,6 @@ embedding_dims = 100
 paddedlength = 100  # length to which each sentence is padded
 batch_size = 32
 epochs = 5            # number of training epochs
-
-
-print("Querying db...")
-
-with open('subreddits.txt', 'r') as f:
-    l = f.read().splitlines()
-    subreddits = ', '.join("'{0}'".format(s) for s in l)
-
-sql_conn = sqlite3.connect("database.sqlite")
-
-# TODO: actually more than 1 subreddit?
-some_data = sql_conn.execute("SELECT subreddit, body, score FROM May2015\
-                              WHERE subreddit IN (%s)\
-                              LIMIT " % subreddits + str(qry_lmt))
-
-print("Building corpus...")
-raw_corpus, corpus, labels, strata = [], [], [], []
-
-for post in some_data:
-    raw_corpus.append(re.sub('\n', '', post[1]))
-    cln_post = re.sub('[^A-Za-z0-9\.\,]+', ' ', post[1]).strip().lower()
-    corpus.append(str(cln_post))
-    labels.append(post[2])
-    strata.append(post[0])
 
 # Building the model
 print("Creating train/test split")

@@ -46,6 +46,7 @@ def db_conn(database="database.sqlite"):
 def db_query(db_conn, subreddit_list, limit):
     # TODO: randomize selection properly instead of taking the first x
     #       always from the same subreddit
+    # TODO: fix insecure sql substitution
     sql_qry = "SELECT subreddit, body, score FROM May2015\
                WHERE subreddit in (%s)\
                LIMIT " % subreddit_list + str(limit)
