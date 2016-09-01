@@ -10,13 +10,16 @@ Also trains Convolutional Neural Networks (CNN) with varying filter sizes,
 filter numbers and optimizers to find optimal network for the data (still in
 progress) using keras (theano).
 
+The data are available at
+[kaggle](https://www.kaggle.com/reddit/reddit-comments-may-2015).
+
 Usage:
 
     $ python reddit_cnn.py
 
 TODO:
 
-    *  data cleaning, this is _actually_ important
-    *  actually more than 1 subreddit?
-    *  init, activation
-    *  k-fold cross-validation
+*   data cleaning, this is _actually_ important
+*   actually more than 1 subreddit?
+*   init, activation
+*   k-fold crossvalidation
