@@ -21,7 +21,7 @@ import sqlite3
 import re
 
 
-def subreddits(subreddit_file="subreddits.txt"):
+def subreddits(subreddit_file="../subreddits.txt"):
     # Read a list of subreddits that are supposed to be used from a file.
     # This helps narrowing down the data to more frequent/appropriate
     # subreddits.
