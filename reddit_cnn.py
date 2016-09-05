@@ -72,8 +72,68 @@ def get_labels_binary(labels, threshold=1):
     return np.expand_dims(Ybin, axis=1)
 
 
+def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
+             max_features=5000, maxlen=100, verbose=True):
+    if (dataset is "reddit"):
+        db = pre.db_conn()
+        data = pre.db_query(db, subreddit_list, qry_lmt)
+        raw_corpus, corpus, labels, strata = pre.get_corpus(data)
+        print('corpus length: ' + str(len(corpus)))
+        print('corpus example: "' + str(corpus[1]) + '"')
+        print('labels length: ' + str(len(labels)))
+        print("labels: " + str(labels))
+
+        X = get_sequences(corpus, max_features, maxlen)
+
+        print('corpus example: "' + str(corpus[1]) + '"')
+        # print('sequence example: ' + str(seq[1]))
+        print('padded example: ' + str(X[1]))
+
+        y = get_labels_binary(labels, 1)
+
+        np.random.seed(1234)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            test_size=0.2)
+
+        # To test if crossvalidation works correctly, we can substitute random
+        # validation data
+        #
+        # y_test = np.random.binomial(1, 0.66, 200)
+        if (verbose is True):
+            print("X_train :" + str(X_train))
+            print("X_train.shape: " + str(X_train.shape))
+            print("X_test.shape: " + str(X_test.shape))
+            print("y_train.shape: " + str(y_train.shape))
+            print("y_test.shape: " + str(y_test.shape))
+            print('y_train mean: ' + str(sum(y_train > 0) /
+                                         float(y_train.shape[0])))
+            print('y_test mean: ' + str(sum(y_test > 0) /
+                                        float(y_test.shape[0])))
+
+        return (X_train, X_test, y_train, y_test)
+    elif (dataset is "imdb"):
+        from keras.datasets import imdb
+        (X_train, y_train), (X_test, y_test) = imdb.load_data(
+                                                    nb_words=max_features)
+        X_train = sequence.pad_sequences(X_train, maxlen=maxlen)
+        X_test = sequence.pad_sequences(X_test, maxlen=maxlen)
+        if (verbose is True):
+            print("X_train :" + str(X_train))
+            print("X_train.shape: " + str(X_train.shape))
+            print("X_test.shape: " + str(X_test.shape))
+            print("y_train.shape: " + str(y_train.shape))
+            print("y_test.shape: " + str(y_test.shape))
+            print('y_train mean: ' + str(sum(y_train > 0) /
+                                         float(y_train.shape[0])))
+            print('y_test mean: ' + str(sum(y_test > 0) /
+                                        float(y_test.shape[0])))
+            print('X_train :' + str(X_train))
+        return (X_train, X_test, y_train, y_test)
+
+
 def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
-              dropout_p, activation="relu"):
+              dropout_p, activation="relu", summary="full"):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=maxlen))
@@ -88,17 +148,34 @@ def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
     nn.add(Dropout(dropout_p))
     nn.add(Dense(1))
     nn.add(Activation('sigmoid'))
-    print(nn.summary())
+    if (summary is "full"):
+        print(nn.summary())
+    elif (summary is "short"):
+        summary = "MF " + str(max_features) + " | Len " + str(maxlen) + \
+                  " | Embed " + str(embedding_dim) + " | F " + \
+                  str(filter_size) + "x" + str(nb_filter) + " | Drop " + \
+                  str(dropout_p) + " | " + activation
+        print(summary)
     return nn
 
 
 def cnn_train(model, X_train, y_train, validation_data=None, val=False,
-              batch_size=32, nb_epoch=5, opt=SGD()):
+              batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
     if (val is True and validation_data is not None):
         model.compile(loss='binary_crossentropy', optimizer=opt,
                       metrics=['accuracy'])
-        model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
-                  validation_data=validation_data)
+        if (verbose is 3):
+            print("Optimizer set to " + str(opt))
+            model.fit(X_train, y_train, batch_size=batch_size,
+                      nb_epoch=nb_epoch, validation_data=validation_data,
+                      verbose=0)
+            print(model.evaluate(X_test, y_test, verbose=0))
+        else:
+            if (verbose is not 0):
+                print("Optimizer set to " + str(opt))
+            model.fit(X_train, y_train, batch_size=batch_size,
+                      nb_epoch=nb_epoch, validation_data=validation_data,
+                      verbose=verbose)
     else:
         model.compile(loss='binary_crossentropy', optimizer=opt)
         model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch)
@@ -111,8 +188,9 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
         lr = LogisticRegressionCV()
         lr.fit(X_train, y_train.ravel())
         pred_y = lr.predict(X_test)
-        print("Test fraction correct (LR-Accuracy) = {:.6f}".format(lr.score(
-              X_test, y_test)))
+        if (val is True):
+            print("Test fraction correct (LR-Accuracy) = {:.6f}".format(
+                  lr.score(X_test, y_test)))
         return pred_y
     elif (type == 'k1'):
         # 2-class logistic regression in Keras
@@ -141,46 +219,19 @@ qry_lmt = 100000  # Actual number of posts we will be gathering.
 # subreddits = subreddits()
 subreddit_list = "'AskReddit'"
 
-db = pre.db_conn()
-data = pre.db_query(db, subreddit_list, qry_lmt)
-raw_corpus, corpus, labels, strata = pre.get_corpus(data)
-print('corpus length: ' + str(len(corpus)))
-print('corpus example: "' + str(corpus[1]) + '"')
-print('labels length: ' + str(len(labels)))
-print("labels: " + str(labels))
-
-# ---------- Preparing training and test data ----------
-
 max_features = 5000  # size of the vocabulary used
 maxlen = 20  # length to which each sentence is padded
 
-X = get_sequences(corpus, max_features, maxlen)
+X_train, X_test, y_train, y_test = get_data("reddit",
+                                            qry_lmt=qry_lmt,
+                                            subreddit_list=subreddit_list,
+                                            max_features=max_features,
+                                            maxlen=maxlen)
 
-print('corpus example: "' + str(corpus[1]) + '"')
-# print('sequence example: ' + str(seq[1]))
-print('padded example: ' + str(X[1]))
-
-y = get_labels_binary(labels, 1)
-
-np.random.seed(1234)
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-# To test if crossvalidation works correctly, we can substitute random
-# validation data
-#
-# y_test = np.random.binomial(1, 0.66, 200)
-
-print("X_train :" + str(X_train))
-
-print("X_train.shape: " + str(X_train.shape))
-print("X_test.shape: " + str(X_test.shape))
-
-print("y_train.shape: " + str(y_train.shape))
-print("y_test.shape: " + str(y_test.shape))
-
-print('y_train mean: ' + str(sum(y_train > 0)/float(y_train.shape[0])))
-print('y_test mean: ' + str(sum(y_test > 0)/float(y_test.shape[0])))
+# or alternatively we can use IMDB dataset
+X_train, X_test, y_train, y_test = get_data("imdb",
+                                            max_features=max_features,
+                                            maxlen=maxlen)
 
 # ---------- Logistic Regression benchmark ----------
 
@@ -208,21 +259,25 @@ print(lr_train(X_train, y_train, validation_data=(X_test, y_test), type='k2'))
 opt = SGD()
 nb_filter = 100
 batch_size = 32
-filter_widths = range(0, 10)
+filter_widths = range(1, 11)
 
 # We will run the ConvNet with different filter sizes to determine the optimal
 # filter width first
 for filter_size in filter_widths:
     nn = cnn_build(max_features, maxlen, embedding_dim=100,
                    filter_size=filter_size, nb_filter=nb_filter,
-                   dropout_p=0.25)
+                   dropout_p=0.25, summary="short")
     cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
-              validation_data=(X_test, y_test), val=True, opt=opt)
+              validation_data=(X_test, y_test), val=True, opt=opt, verbose=3)
+    print("-------------------------------------------------------")
 
-# After we decide for an approriate filter size, we can try out using the
+# After we decide for an appropriate filter size, we can try out using the
 # same filter multiples times or several different size filters close to the
 # optimal filter size.
-#
+
+filter_size = 3
+print("Filter size permanently set to " + str(filter_size))
+
 # However, I still have to find out how to code in multiple filter sizes in
 # one model in keras.
 
@@ -231,16 +286,26 @@ for filter_size in filter_widths:
 # beyond that.
 #
 # for maxlen in range(100, 650, 50):
-# ...
+#    ...
 
 # After this, we can try the effects of different activation functions.
 # Recommended are for most data: Id(x), ReLU, or tanh. Id(x) mostly only
 # works if you have one layer and we intent to increase that later so we should
 # probably go with tanh or ReLU.
 #
-# for activation in ('tanh', 'relu', 'linear'):
+for activation in ('tanh', 'relu', 'linear'):
+    nn = cnn_build(max_features, maxlen, embedding_dim=100,
+                   filter_size=filter_size, nb_filter=nb_filter,
+                   dropout_p=0.25, summary="short", activation=activation)
+    cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
+              validation_data=(X_test, y_test), val=True, opt=opt, verbose=3)
+    print("-------------------------------------------------------")
+
+activation = "relu"
+print("Activation function permanently set to " + activation)
 
 # 1-max-pooling is usually the best, but we can also try out k-max [5,10,15,20]
+# ---> Stil have to figure out how to do k-max in keras.
 
 # Also we can switch around with the dropout rate between (0.0, 0.5), but the
 # impact this has will be very limited. Same goes for l2-regularization. We can
@@ -248,7 +313,16 @@ for filter_size in filter_widths:
 # increase the size of the feature map beond 600, we can add dropout > 0.5.
 # However, all of this is pretty unnecessary if we only have 1 hidden layer.
 #
-# for dropout_p in np.linspace(0, 0.5, 6)
+for dropout_p in np.linspace(0, 0.5, 6):
+    nn = cnn_build(max_features, maxlen, embedding_dim=100,
+                   filter_size=filter_size, nb_filter=nb_filter,
+                   dropout_p=dropout_p, summary="short", activation=activation)
+    cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
+              validation_data=(X_test, y_test), val=True, opt=opt, verbose=3)
+    print("-------------------------------------------------------")
+
+dropout_p = "0.25"
+print("Dropout probability permanently set to " + dropout_p)
 
 # After this we can fiddle around with the algorithm and learning rate. SGD
 # works well with ReLU. Other options: Adadelta, Adam.
@@ -257,3 +331,12 @@ for filter_size in filter_widths:
 # opt=Adadelta(lr=1.0)
 # opt=Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 # ...
+
+opt = SGD(lr=0.1)
+print("Optimizer set to " + str(opt))
+nn = cnn_build(max_features, maxlen, embedding_dim=100,
+               filter_size=filter_size, nb_filter=nb_filter,
+               dropout_p=dropout_p, summary="short", activation=activation)
+cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
+          validation_data=(X_test, y_test), val=True, opt=opt, verbose=1)
+print("-------------------------------------------------------")
