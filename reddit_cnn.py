@@ -255,7 +255,10 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
         return model.evaluate(X_test, y_test, verbose=0)
 
 # ---------- Parsing command line arguments ----------
-parser = argparse.ArgumentParser(description='Process some integers.')
+parser = argparse.ArgumentParser(
+    description='Reddit CNN - binary classification on reddit comment scores.')
+
+# 'imdb' or 'reddit' dataset?
 parser.add_argument('--dataset', default='reddit',
                     help='dataset to be used (default: \'reddit\')')
 
@@ -268,6 +271,7 @@ parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('-b', '--batch_size', default=32, type=int,
                     help='batch size (default: 32)')
+# --opt will expect a keras.optimizer call
 parser.add_argument('-o', '--opt', default='SGD()',
                     help='optimizer flag (default: \'SGD()\')')
 parser.add_argument('-e', '--epochs', default=5, type=int,
@@ -276,16 +280,23 @@ parser.add_argument('-e', '--epochs', default=5, type=int,
 # Model Parameters
 parser.add_argument('-N', '--nb_filter', default=100, type=int,
                     help='number of filters for each size (default: 100)')
-parser.add_argument('-F', '--filters', nargs='*', default=[3, 5, 6], type=int,
+# --filters will expect a list of integers corresponding to selected filter
+# sizes, e.g. -F 3 5 7.
+parser.add_argument('-F', '--filters', nargs='*', default=[3], type=int,
                     help='filter sizes to be calculated (default: 3)')
+# --activation will expect strings corresponding to keras activation
+# functions, e.g. -A 'tanh' 'relu'.
 parser.add_argument('-A', '--activation', nargs='*', default=['relu'],
                     help='activation functions to use (default: [\'relu\'])')
+# --dropout will expect a list of floats corresponding to different dropout
+# rates, e.g. -D 0.1 0.25 0.5
 parser.add_argument('-D', '--dropout', nargs='*', default=[0.25], type=float,
                     help='dropout percentages (default: [0.25])')
 parser.add_argument('-E', '--embed', default=100, type=int,
                     help='embedding dimension (default: 100)')
 
 # Switches
+# For now this switch is always true.
 parser.add_argument('--perm', default=True, action='store_true',
                     help='calculate all possible model Permutations \
                     (default: True)')
@@ -294,7 +305,7 @@ parser.add_argument('--logreg', action='store_true',
 parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
 
-# Verbosity
+# Verbosity (see below)
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
 
@@ -330,7 +341,7 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             max_features=max_features,
                                             maxlen=maxlen, verbose=verbose)
 
-print("=======================================================")
+print("======================================================")
 
 # ---------- Logistic Regression benchmark ----------
 
@@ -345,18 +356,18 @@ if (args.logreg is True):
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test)))
-        print("-------------------------------------------------------")
+        print("------------------------------------------------------")
 
         # keras simple logreg
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
               type='k1'))
-        print("-------------------------------------------------------")
+        print("------------------------------------------------------")
 
         # keras logreg with l1 and l2 regularization
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
               type='k2'))
-        print("-------------------------------------------------------")
-    print("=======================================================")
+        print("------------------------------------------------------")
+    print("======================================================")
 
 # ---------- Store command line argument variables ----------
 # Hyperparameter constants
@@ -409,7 +420,7 @@ if (perm is True):
     M = len(models)
     print("Found " + str(M) + " possible models.")
 
-    if (M > 6 and query_yes_no("Do you wish to continue?")):
+    if (query_yes_no("Do you wish to continue?")):
         for m in models:
             nn = cnn_build(max_features=max_features, maxlen=maxlen,
                            embedding_dim=embedding_dim, filter_size=m[0],
@@ -417,12 +428,13 @@ if (perm is True):
                            activation=m[2], summary=summary)
             if (dry_run is False):
                 cnn_train(nn, X_train, y_train, batch_size=batch_size,
-                          nb_epoch=nb_epoch, validatioN_data=(X_test, y_test),
+                          nb_epoch=nb_epoch, validation_data=(X_test,
+                                                              y_test),
                           val=True, opt=opt, verbose=verbose)
-            print("-------------------------------------------------------")
+            print("------------------------------------------------------")
     else:
         print("Aborting.")
-        print("=======================================================")
+        print("======================================================")
 
 else:
     if (verbose > 0):
@@ -442,7 +454,7 @@ else:
             cnn_train(nn, X_train, y_train, batch_size=batch_size,
                       nb_epoch=nb_epoch, validation_data=(X_test, y_test),
                       val=True, opt=opt, verbose=verbose)
-        print("-------------------------------------------------------")
+        print("------------------------------------------------------")
 
 # After this, we can try the effects of different activation functions.
 # Recommended are for most data: Id(x), ReLU, or tanh. Id(x) mostly only
@@ -457,7 +469,7 @@ else:
             cnn_train(nn, X_train, y_train, batch_size=batch_size,
                       nb_epoch=nb_epoch, validation_data=(X_test, y_test),
                       val=True, opt=opt, verbose=verbose)
-        print("-------------------------------------------------------")
+        print("------------------------------------------------------")
 
 # Also we can switch around with the dropout rate between (0.0, 0.5), but the
 # impact this has will be very limited. Same goes for l2-regularization. We can
@@ -473,7 +485,7 @@ else:
             cnn_train(nn, X_train, y_train, batch_size=batch_size,
                       nb_epoch=nb_epoch, validation_data=(X_test, y_test),
                       val=True, opt=opt, verbose=verbose)
-        print("-------------------------------------------------------")
+        print("------------------------------------------------------")
 
 # After we decide for an appropriate filter size, we can try out using the
 # same filter multiples times or several different size filters close to the
@@ -510,6 +522,6 @@ else:
 #                dropout_p=dropout_p, summary="short", activation=activation)
 # cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
 #           validation_data=(X_test, y_test), val=True, opt=opt, verbose=1)
-# print("-------------------------------------------------------")
+# print("------------------------------------------------------")
 
-    print("=======================================================")
+    print("======================================================")
