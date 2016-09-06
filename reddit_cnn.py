@@ -22,15 +22,20 @@ Usage:
 
 TODO:
 
-*   get all model combinations running
 *   data cleaning, this is _actually_ important
 *   actually more than 1 subreddit?
 *   init, activation
 *   k-fold crossvalidation
+*   add docstrings to everything
+*   add option to display+print model plot
+*   add option to time benchmark
+*   catch argument exceptions
 """
 
 from __future__ import print_function
 import argparse
+import sys
+from itertools import product
 
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
@@ -41,12 +46,46 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
-# from keras.utils.np_utils import accuracy
 from keras.optimizers import SGD
 from keras.regularizers import l1l2
 # from keras.utils.visualize_util import plot
 
 import preprocess as pre
+
+
+def query_yes_no(question, default="yes"):
+    """
+    Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    From http://code.activestate.com/recipes/577058/.
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
 
 
 def get_sequences(corpus, max_features=5000, maxlen=100):
@@ -219,16 +258,22 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--dataset', default='reddit',
                     help='dataset to be used (default: \'reddit\')')
-parser.add_argument('--logreg', action='store_true',
-                    help='calculate logreg benchmark? (default: False)')
-parser.add_argument('-Q', '--qry_lmt', default=10000, type=int,
+
+# General Hyperparameters
+parser.add_argument('-q', '--qry_lmt', default=10000, type=int,
                     help='amount of data to query (default: 10000)')
 parser.add_argument('--max_features', default=5000, type=int,
                     help='size of vocabulary (default: 5000)')
 parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
-parser.add_argument('--batch_size', default=32, type=int,
+parser.add_argument('-b', '--batch_size', default=32, type=int,
                     help='batch size (default: 32)')
+parser.add_argument('-o', '--opt', default='SGD()',
+                    help='optimizer flag (default: \'SGD()\')')
+parser.add_argument('-e', '--epochs', default=5, type=int,
+                    help='number of epochs for models (default: 5)')
+
+# Model Parameters
 parser.add_argument('-N', '--nb_filter', default=100, type=int,
                     help='number of filters for each size (default: 100)')
 parser.add_argument('-F', '--filters', nargs='*', default=[3, 5, 6], type=int,
@@ -236,9 +281,20 @@ parser.add_argument('-F', '--filters', nargs='*', default=[3, 5, 6], type=int,
 parser.add_argument('-A', '--activation', nargs='*', default=['relu'],
                     help='activation functions to use (default: [\'relu\'])')
 parser.add_argument('-D', '--dropout', nargs='*', default=[0.25], type=float,
-                    help='dropout percentages to use (default: [0.25])')
-parser.add_argument('-O', '--opt', default='SGD()',
-                    help='optimizer flag (default: \'SGD()\')')
+                    help='dropout percentages (default: [0.25])')
+parser.add_argument('-E', '--embed', default=100, type=int,
+                    help='embedding dimension (default: 100)')
+
+# Switches
+parser.add_argument('--perm', default=True, action='store_true',
+                    help='calculate all possible model Permutations \
+                    (default: True)')
+parser.add_argument('--logreg', action='store_true',
+                    help='calculate logreg benchmark? (default: False)')
+parser.add_argument('--dry', default=False, action='store_true',
+                    help='do not actually calculate anything (default: False)')
+
+# Verbosity
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
 
@@ -253,6 +309,11 @@ args = parser.parse_args()
 verbose = args.verbose
 if (verbose > 0):
     print("verbosity level: " + str(verbose))
+
+# Dry run yes/no?
+dry_run = args.dry
+
+# TODO: check arguments for exceptions
 
 # ---------- Data gathering ----------
 qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
@@ -269,6 +330,8 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             max_features=max_features,
                                             maxlen=maxlen, verbose=verbose)
 
+print("=======================================================")
+
 # ---------- Logistic Regression benchmark ----------
 
 # Run a logistic regression benchmark first so we can later see if our
@@ -277,18 +340,44 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
 if (args.logreg is True):
     if (verbose > 0):
         print("Running logistic regression benchmarks.")
-    # Scikit-learn logreg.
-    # This will also return the predictions to make sure the model doesn't just
-    # predict one class only
-    print(lr_train(X_train, y_train, validation_data=(X_test, y_test)))
+    if (dry_run is False):
+        # Scikit-learn logreg.
+        # This will also return the predictions to make sure the model doesn't
+        # just predict one class only
+        print(lr_train(X_train, y_train, validation_data=(X_test, y_test)))
+        print("-------------------------------------------------------")
 
-    # keras simple logreg
-    print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
-          type='k1'))
+        # keras simple logreg
+        print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
+              type='k1'))
+        print("-------------------------------------------------------")
 
-    # keras logreg with l1 and l2 regularization
-    print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
-          type='k2'))
+        # keras logreg with l1 and l2 regularization
+        print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
+              type='k2'))
+        print("-------------------------------------------------------")
+    print("=======================================================")
+
+# ---------- Store command line argument variables ----------
+# Hyperparameter constants
+nb_filter = args.nb_filter
+batch_size = args.batch_size
+opt = eval(args.opt)
+nb_epoch = args.epochs
+embedding_dim = args.embed
+
+# Hyperparameter lists
+filter_widths = args.filters
+activation_list = args.activation
+dropout_list = args.dropout
+
+# Permanent hyperparameters
+dropout_p = dropout_list[0]
+activation = activation_list[0]
+filter_size = filter_widths[0]
+
+# Calculates all possible permutations from the model options selected
+perm = args.perm
 
 # ---------- Convolutional Neural Network ----------
 
@@ -296,24 +385,12 @@ if (args.logreg is True):
 # in http://arxiv.org/pdf/1510.03820v4.pdf (Zhang, Wallace 2016)
 
 # First, start with a simple 1 layer CNN.
-nb_filter = args.nb_filter
-batch_size = args.batch_size
-filter_widths = args.filters
-opt = eval(args.opt)
-activation_list = args.activation
-dropout_list = args.dropout
-dropout_p = dropout_list[0]
-activation = activation_list[0]
-filter_size = filter_widths[0]
-
 if (verbose > 0):
-    print("Running CNN with " + str(nb_filter) + " filters of sizes " +
-          str(filter_widths))
     print("Optimizer permanently set to " + args.opt)
-    print("Activation function permanently set to " + activation)
-    print("Dropout probability permanently set to " + str(dropout_p))
-    print("Embedding dim permanently set to 100")
-    print("Filter size permanently set to " + str(filter_size))
+    print("Embedding dim permanently set to " + str(embedding_dim))
+    print("Number of filters set to " + str(nb_filter))
+    print("Batch size set to " + str(batch_size))
+    print("Number of epochs set to " + str(nb_epoch))
     if (verbose == 3):
         summary = "full"
     else:
@@ -321,16 +398,82 @@ if (verbose > 0):
 else:
     summary = "none"
 
-# We will run the ConvNet with different filter sizes to determine the optimal
-# filter width first
-for fs in filter_widths:
-    nn = cnn_build(max_features, maxlen, embedding_dim=100,
-                   filter_size=fs, nb_filter=nb_filter,
-                   dropout_p=dropout_p, summary=summary)
-    cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
-              validation_data=(X_test, y_test), val=True, opt=opt,
-              verbose=verbose)
-    print("-------------------------------------------------------")
+if (perm is True):
+    if (verbose > 0):
+        print("Selected filter sizes " + str(filter_widths))
+        print("Selected Dropout rates " + str(dropout_list))
+        print("Selected Activation functions " + str(activation_list))
+        print("Calculating all possible model permutations")
+    s = [filter_widths, dropout_list, activation_list]
+    models = list(product(*s))
+    M = len(models)
+    print("Found " + str(M) + " possible models.")
+
+    if (M > 6 and query_yes_no("Do you wish to continue?")):
+        for m in models:
+            nn = cnn_build(max_features=max_features, maxlen=maxlen,
+                           embedding_dim=embedding_dim, filter_size=m[0],
+                           nb_filter=nb_filter, dropout_p=m[1],
+                           activation=m[2], summary=summary)
+            if (dry_run is False):
+                cnn_train(nn, X_train, y_train, batch_size=batch_size,
+                          nb_epoch=nb_epoch, validatioN_data=(X_test, y_test),
+                          val=True, opt=opt, verbose=verbose)
+            print("-------------------------------------------------------")
+    else:
+        print("Aborting.")
+        print("=======================================================")
+
+else:
+    if (verbose > 0):
+        print('You chose not to calculate all model permutations. ' +
+              'Running default routine.')
+        print("Selected filter sizes " + str(filter_widths))
+        print("Selected Dropout rates " + str(dropout_list))
+        print("Selected Activation functions " + str(activation_list))
+
+# We will run the ConvNet with different filter sizes to determine the
+# optimal filter width first
+    for fs in filter_widths:
+        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
+                       filter_size=fs, nb_filter=nb_filter,
+                       dropout_p=dropout_p, summary=summary)
+        if (dry_run is False):
+            cnn_train(nn, X_train, y_train, batch_size=batch_size,
+                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
+                      val=True, opt=opt, verbose=verbose)
+        print("-------------------------------------------------------")
+
+# After this, we can try the effects of different activation functions.
+# Recommended are for most data: Id(x), ReLU, or tanh. Id(x) mostly only
+# works if you have one layer and we intent to increase that later so we should
+# probably go with tanh or ReLU.
+#
+    for act in activation_list:
+        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
+                       filter_size=filter_size, nb_filter=nb_filter,
+                       dropout_p=dropout_p, summary=summary, activation=act)
+        if (dry_run is False):
+            cnn_train(nn, X_train, y_train, batch_size=batch_size,
+                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
+                      val=True, opt=opt, verbose=verbose)
+        print("-------------------------------------------------------")
+
+# Also we can switch around with the dropout rate between (0.0, 0.5), but the
+# impact this has will be very limited. Same goes for l2-regularization. We can
+# add that into the model with a large constraint value. If we intent to
+# increase the size of the feature map beond 600, we can add dropout > 0.5.
+# However, all of this is pretty unnecessary if we only have 1 hidden layer.
+#
+    for p in dropout_list:
+        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
+                       filter_size=filter_size, nb_filter=nb_filter,
+                       dropout_p=p, summary=summary, activation=activation)
+        if (dry_run is False):
+            cnn_train(nn, X_train, y_train, batch_size=batch_size,
+                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
+                      val=True, opt=opt, verbose=verbose)
+        print("-------------------------------------------------------")
 
 # After we decide for an appropriate filter size, we can try out using the
 # same filter multiples times or several different size filters close to the
@@ -349,37 +492,8 @@ for fs in filter_widths:
 # for maxlen in range(100, 650, 50):
 #    ...
 
-# After this, we can try the effects of different activation functions.
-# Recommended are for most data: Id(x), ReLU, or tanh. Id(x) mostly only
-# works if you have one layer and we intent to increase that later so we should
-# probably go with tanh or ReLU.
-#
-for act in activation_list:
-    nn = cnn_build(max_features, maxlen, embedding_dim=100,
-                   filter_size=filter_size, nb_filter=nb_filter,
-                   dropout_p=dropout_p, summary=summary, activation=act)
-    cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
-              validation_data=(X_test, y_test), val=True, opt=opt,
-              verbose=verbose)
-    print("-------------------------------------------------------")
-
 # 1-max-pooling is usually the best, but we can also try out k-max [5,10,15,20]
 # ---> Stil have to figure out how to do k-max in keras.
-
-# Also we can switch around with the dropout rate between (0.0, 0.5), but the
-# impact this has will be very limited. Same goes for l2-regularization. We can
-# add that into the model with a large constraint value. If we intent to
-# increase the size of the feature map beond 600, we can add dropout > 0.5.
-# However, all of this is pretty unnecessary if we only have 1 hidden layer.
-#
-for p in dropout_list:
-    nn = cnn_build(max_features, maxlen, embedding_dim=100,
-                   filter_size=filter_size, nb_filter=nb_filter,
-                   dropout_p=p, summary=summary, activation=activation)
-    cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
-              validation_data=(X_test, y_test), val=True, opt=opt,
-              verbose=verbose)
-    print("-------------------------------------------------------")
 
 # After this we can fiddle around with the algorithm and learning rate. SGD
 # works well with ReLU. Other options: Adadelta, Adam.
@@ -397,3 +511,5 @@ for p in dropout_list:
 # cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
 #           validation_data=(X_test, y_test), val=True, opt=opt, verbose=1)
 # print("-------------------------------------------------------")
+
+    print("=======================================================")
