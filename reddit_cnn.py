@@ -40,6 +40,8 @@ from itertools import product
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.cross_validation import train_test_split
+from sklearn.metrics import confusion_matrix
+
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
 from keras.models import Sequential
@@ -49,6 +51,7 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.optimizers import SGD
 from keras.regularizers import l1l2
 # from keras.utils.visualize_util import plot
+from keras.datasets import imdb
 
 import preprocess as pre
 
@@ -115,7 +118,7 @@ def get_labels_binary(labels, threshold=1):
 
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, maxlen=100, verbose=1):
-    if (dataset is "reddit"):
+    if (dataset.lower() == "reddit"):
         db = pre.db_conn()
         data = pre.db_query(db, subreddit_list, qry_lmt)
         raw_corpus, corpus, labels, strata = pre.get_corpus(data)
@@ -152,8 +155,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
                                         float(y_test.shape[0])))
 
         return (X_train, X_test, y_train, y_test)
-    elif (dataset is "imdb"):
-        from keras.datasets import imdb
+    elif (dataset.lower() == "imdb"):
         (X_train, y_train), (X_test, y_test) = imdb.load_data(
                                                     nb_words=max_features)
         X_train = sequence.pad_sequences(X_train, maxlen=maxlen)
@@ -171,6 +173,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
                                         float(y_test.shape[0])))
 
         return (X_train, X_test, y_train, y_test)
+    else:
+        print(dataset + " is not a valid dataset.")
 
 
 def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
@@ -189,9 +193,9 @@ def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
     nn.add(Dropout(dropout_p))
     nn.add(Dense(1))
     nn.add(Activation('sigmoid'))
-    if (summary is "full"):
+    if (summary == "full"):
         print(nn.summary())
-    elif (summary is "short"):
+    elif (summary == "short"):
         summary = "MF " + str(max_features) + " | Len " + str(maxlen) + \
                   " | Embed " + str(embedding_dim) + " | F " + \
                   str(filter_size) + "x" + str(nb_filter) + " | Drop " + \
@@ -203,6 +207,7 @@ def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
 def cnn_train(model, X_train, y_train, validation_data=None, val=False,
               batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
     if (val is True and validation_data is not None):
+        X_test, y_test = validation_data
         model.compile(loss='binary_crossentropy', optimizer=opt,
                       metrics=['accuracy'])
         if (verbose is 1):
@@ -253,6 +258,18 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
         model.fit(X_train, y_train, nb_epoch=nb_epoch,
                   validation_data=validation_data)
         return model.evaluate(X_test, y_test, verbose=0)
+
+
+def print_cm(nn=None):
+    print("Confusion Matrix (frequency, normalized):")
+    y_pred = nn.predict_classes(X_test, batch_size=32, verbose=0)
+    cm = confusion_matrix(y_test, y_pred)
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    np.set_printoptions(precision=3, suppress=True)
+    print(cm)
+    print(cm_normalized)
+
 
 # ---------- Parsing command line arguments ----------
 parser = argparse.ArgumentParser(
@@ -305,9 +322,11 @@ parser.add_argument('--logreg', action='store_true',
 parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
 
-# Verbosity (see below)
+# Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
+parser.add_argument('-f', '--file', default=None,
+                    help='file to output to (default: None)')
 
 args = parser.parse_args()
 
@@ -373,7 +392,8 @@ if (args.logreg is True):
 # Hyperparameter constants
 nb_filter = args.nb_filter
 batch_size = args.batch_size
-opt = eval(args.opt)
+# opt = eval(args.opt)
+opt = 'rmsprop'
 nb_epoch = args.epochs
 embedding_dim = args.embed
 
@@ -397,7 +417,7 @@ perm = args.perm
 
 # First, start with a simple 1 layer CNN.
 if (verbose > 0):
-    print("Optimizer permanently set to " + args.opt)
+    print("Optimizer permanently set to " + str(opt))
     print("Embedding dim permanently set to " + str(embedding_dim))
     print("Number of filters set to " + str(nb_filter))
     print("Batch size set to " + str(batch_size))
@@ -431,6 +451,9 @@ if (perm is True):
                           nb_epoch=nb_epoch, validation_data=(X_test,
                                                               y_test),
                           val=True, opt=opt, verbose=verbose)
+
+            # Confusion Matrix code
+            print_cm(nn)
             print("------------------------------------------------------")
     else:
         print("Aborting.")
