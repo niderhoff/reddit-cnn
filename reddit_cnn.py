@@ -22,7 +22,6 @@ Usage:
 
 TODO:
 
-*   data cleaning, this is _actually_ important
 *   actually more than 1 subreddit?
 *   init, activation
 *   k-fold crossvalidation
@@ -92,9 +91,20 @@ def query_yes_no(question, default="yes"):
 
 
 def get_sequences(corpus, max_features=5000, maxlen=100):
-    # Read a list of subreddits that are supposed to be used from a file.
-    # This helps narrowing down the data to more frequent/appropriate
-    # subreddits.
+    """
+    Will convert the corpus to a word index and pad the resulting
+    sequences to the maximum length if they fall short.
+
+    Args:
+        corpus: the corpus of comments
+        max_features: number of words in the word index. words that are used
+                      less frequently will be replaced by zeroes. (?)
+        maxlen: maximum length of comments. longer ones will be truncated,
+                shorter ones will be padded with zeroes on the left hand side.
+
+    Returns:
+        data matrix X
+    """
     tokenized = Tokenizer(nb_words=max_features)
     tokenized.fit_on_texts(corpus)
     seq = tokenized.texts_to_sequences(corpus)
@@ -103,6 +113,17 @@ def get_sequences(corpus, max_features=5000, maxlen=100):
 
 
 def get_labels_binary(labels, threshold=1):
+    """
+    Will turn the labels (reddit comment karma) into binary classes depending
+    on a given threshold.
+
+    Args:
+        labels: the list of karma scores
+        threshold: value at wich to split the scores into classes
+
+    Returns:
+        np.array with binary classes
+    """
     Y = np.asarray(labels)
     Ybool = abs(Y) > threshold
     Ybin = Ybool.astype(int)
@@ -117,19 +138,20 @@ def get_labels_binary(labels, threshold=1):
 
 
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
-             max_features=5000, maxlen=100, verbose=1):
+             max_features=5000, minlen=5, maxlen=100,
+             minscore=None, maxscore=None, split=0.2, verbose=1):
     if (dataset.lower() == "reddit"):
-        db = pre.db_conn()
-        data = pre.db_query(db, subreddit_list, qry_lmt)
-        raw_corpus, corpus, labels, strata = pre.get_corpus(data)
-
+        raw_corpus, corpus, labels, strata = pre.get_corpora(
+            subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
+            minscore=minscore, maxscore=maxscore,
+            batch_size=qry_lmt/10, verbose=verbose)
         X = get_sequences(corpus, max_features, maxlen)
         y = get_labels_binary(labels, 1)
 
         np.random.seed(1234)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=0.2)
+                                                            test_size=split)
 
         # To test if crossvalidation works correctly, we can substitute random
         # validation data
@@ -286,6 +308,8 @@ parser.add_argument('--max_features', default=5000, type=int,
                     help='size of vocabulary (default: 5000)')
 parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
+parser.add_argument('--minlen', default=0, type=int,
+                    help='minimum comment length (default: 0)')
 parser.add_argument('-b', '--batch_size', default=32, type=int,
                     help='batch size (default: 32)')
 # --opt will expect a keras.optimizer call
@@ -353,12 +377,14 @@ subreddit_list = "'AskReddit'"
 
 max_features = args.max_features  # size of the vocabulary used
 maxlen = args.maxlen  # length to which each sentence is padded
+minlen = args.minlen  # minimum length of a comment to be considered
 
 X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             qry_lmt=qry_lmt,
                                             subreddit_list=subreddit_list,
                                             max_features=max_features,
-                                            maxlen=maxlen, verbose=verbose)
+                                            maxlen=maxlen,
+                                            verbose=verbose)
 
 print("======================================================")
 
