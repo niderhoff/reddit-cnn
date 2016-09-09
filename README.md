@@ -30,38 +30,39 @@ Usage:
                      [-f FILE]
 
 Args:
-      -h, --help            show this help message and exit
-      --dataset DATASET     dataset to be used (default: 'reddit')
-      -q QRY_LMT, --qry_lmt QRY_LMT
-                            amount of data to query (default: 10000)
-      --max_features MAX_FEATURES
-                            size of vocabulary (default: 5000)
-      --maxlen MAXLEN       maximum comment length (default: 100)
-      --minlen MINLEN       minimum comment length (default: 0)
-      -b BATCH_SIZE, --batch_size BATCH_SIZE
-                            batch size (default: 32)
-      -o OPT, --opt OPT     optimizer flag (default: 'rmsprop')
-      -e EPOCHS, --epochs EPOCHS
-                            number of epochs for models (default: 5)
-      -N NB_FILTER, --nb_filter NB_FILTER
-                            number of filters for each size (default: 100)
-      -F [FILTERS [FILTERS ...]], --filters [FILTERS [FILTERS ...]]
-                            filter sizes to be calculated (default: 3)
-      -A [ACTIVATION [ACTIVATION ...]], --activation [ACTIVATION [...]]
-                            activation functions to use (default: ['relu'])
-      -D [DROPOUT [DROPOUT ...]], --dropout [DROPOUT [DROPOUT ...]]
-                            dropout percentages (default: [0.25])
-      -E EMBED, --embed EMBED
-                            embedding dimension (default: 100)
-      --perm                calculate all possible model Permutations (default:
-                            True)
-      --logreg              calculate logreg benchmark? (default: False)
-      --dry                 do not actually calculate anything (default: False)
-      --parallel            run filter sizes in parallel (default: False)
-      --cm                  calculates confusion matrix (default: False)
-      -v VERBOSE, --verbose VERBOSE
-                            verbosity between 0 and 3 (default: 2)
-      -f FILE, --file FILE  file to output to (default: None)
+
+    -h, --help            show this help message and exit
+    --dataset DATASET     dataset to be used (default: 'reddit')
+    -q QRY_LMT, --qry_lmt QRY_LMT
+                        amount of data to query (default: 10000)
+    --max_features MAX_FEATURES
+                        size of vocabulary (default: 5000)
+    --maxlen MAXLEN       maximum comment length (default: 100)
+    --minlen MINLEN       minimum comment length (default: 0)
+    -b BATCH_SIZE, --batch_size BATCH_SIZE
+                        batch size (default: 32)
+    -o OPT, --opt OPT     optimizer flag (default: 'rmsprop')
+    -e EPOCHS, --epochs EPOCHS
+                        number of epochs for models (default: 5)
+    -N NB_FILTER, --nb_filter NB_FILTER
+                        number of filters for each size (default: 100)
+    -F [FILTERS [FILTERS ...]], --filters [FILTERS [FILTERS ...]]
+                        filter sizes to be calculated (default: 3)
+    -A [ACTIVATION [ACTIVATION ...]], --activation [ACTIVATION [...]]
+                        activation functions to use (default: ['relu'])
+    -D [DROPOUT [DROPOUT ...]], --dropout [DROPOUT [DROPOUT ...]]
+                        dropout percentages (default: [0.25])
+    -E EMBED, --embed EMBED
+                        embedding dimension (default: 100)
+    --perm                calculate all possible model Permutations (default:
+                        True)
+    --logreg              calculate logreg benchmark? (default: False)
+    --dry                 do not actually calculate anything (default: False)
+    --parallel            run filter sizes in parallel (default: False)
+    --cm                  calculates confusion matrix (default: False)
+    -v VERBOSE, --verbose VERBOSE
+                        verbosity between 0 and 3 (default: 2)
+    -f FILE, --file FILE  file to output to (default: None)
 
 The data are available at
 [kaggle](https://www.kaggle.com/reddit/reddit-comments-may-2015).
