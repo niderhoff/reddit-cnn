@@ -44,7 +44,7 @@ from sklearn.metrics import confusion_matrix
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.core import Dense, Dropout, Activation, Flatten, Merge
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.optimizers import SGD
@@ -199,8 +199,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         print(dataset + " is not a valid dataset.")
 
 
-def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
-              dropout_p, activation="relu", summary="full"):
+def cnn_simple(max_features, maxlen, embedding_dim, filter_size, nb_filter,
+               dropout_p, activation="relu", summary="full"):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=maxlen))
@@ -209,7 +209,7 @@ def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
         nb_filter,
         filter_size,
         activation=activation
-    ))
+        ))
     nn.add(MaxPooling1D(pool_length=maxlen - filter_size + 1))
     nn.add(Flatten())
     nn.add(Dropout(dropout_p))
@@ -226,8 +226,8 @@ def cnn_build(max_features, maxlen, embedding_dim, filter_size, nb_filter,
     return nn
 
 
-def cnn_train(model, X_train, y_train, validation_data=None, val=False,
-              batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
+def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
+                     batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
     if (val is True and validation_data is not None):
         X_test, y_test = validation_data
         model.compile(loss='binary_crossentropy', optimizer=opt,
@@ -248,6 +248,60 @@ def cnn_train(model, X_train, y_train, validation_data=None, val=False,
     else:
         model.compile(loss='binary_crossentropy', optimizer=opt)
         model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch)
+        return(model)
+
+
+def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
+                 dropout_p, activation="relu", summary="full"):
+    conv_filters = []
+    for n_gram in ngram_filters:
+        sequential = Sequential()
+        conv_filters.append(sequential)
+        sequential.add(Embedding(input_dim=max_features,
+                                 output_dim=embedding_dim,
+                                 input_length=maxlen))
+        sequential.add(Dropout(dropout_p))
+        sequential.add(Convolution1D(nb_filter, n_gram, activation=activation))
+        sequential.add(MaxPooling1D(pool_length=maxlen - n_gram + 1))
+        sequential.add(Flatten())
+    model = Sequential()
+    model.add(Merge(conv_filters, mode='concat'))
+    model.add(Dropout(dropout_p))
+    model.add(Dense(1))
+    model.add(Activation("sigmoid"))
+    return model
+
+
+def cnn_train_parallel(model, X_train, y_train, ngram_filters,
+                       validation_data=None, val=False,
+                       batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
+    X_test, y_test = validation_data
+    concat_X_test = []
+    concat_X_train = []
+    for i in range(len(ngram_filters)):
+        concat_X_test.append(X_test)
+        concat_X_train.append(X_train)
+
+    model.compile(loss='binary_crossentropy', optimizer=opt,
+                  metrics=['accuracy'])
+    if (verbose is 1):
+        model.fit(concat_X_train, y_train, batch_size=batch_size,
+                  nb_epoch=nb_epoch,
+                  validation_data=(concat_X_test, y_test), verbose=0)
+        print(model.evaluate(concat_X_test, y_test, verbose=0))
+    elif (verbose is 2):
+        model.fit(concat_X_train, y_train, batch_size=batch_size,
+                  nb_epoch=nb_epoch,
+                  validation_data=(concat_X_test, y_test), verbose=2)
+    elif (verbose is 3):
+        model.fit(concat_X_train, y_train, batch_size=batch_size,
+                  nb_epoch=nb_epoch,
+                  validation_data=(concat_X_test, y_test), verbose=1)
+    else:
+        model.compile(loss='binary_crossentropy', optimizer=opt)
+        model.fit(concat_X_train, y_train, batch_size=batch_size,
+                  nb_epoch=nb_epoch)
+        return(model)
 
 
 def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
@@ -313,8 +367,8 @@ parser.add_argument('--minlen', default=0, type=int,
 parser.add_argument('-b', '--batch_size', default=32, type=int,
                     help='batch size (default: 32)')
 # --opt will expect a keras.optimizer call
-parser.add_argument('-o', '--opt', default='SGD()',
-                    help='optimizer flag (default: \'SGD()\')')
+parser.add_argument('-o', '--opt', default='rmsprop',
+                    help='optimizer flag (default: \'rmsprop\')')
 parser.add_argument('-e', '--epochs', default=5, type=int,
                     help='number of epochs for models (default: 5)')
 
@@ -345,6 +399,10 @@ parser.add_argument('--logreg', action='store_true',
                     help='calculate logreg benchmark? (default: False)')
 parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
+parser.add_argument('--parallel', default=False, action='store_true',
+                    help='run filter sizes in parallel (default: False)')
+parser.add_argument('--cm', default=False, action='store_true',
+                    help='calculates confusion matrix (default: False)')
 
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
@@ -366,6 +424,15 @@ if (verbose > 0):
 
 # Dry run yes/no?
 dry_run = args.dry
+
+# Parallel filters?
+parallel = args.parallel
+
+# Calculates all possible permutations from the model options selected
+perm = args.perm
+
+# Calculate confusion matrix?
+cm = args.cm
 
 # TODO: check arguments for exceptions
 
@@ -418,8 +485,7 @@ if (args.logreg is True):
 # Hyperparameter constants
 nb_filter = args.nb_filter
 batch_size = args.batch_size
-# opt = eval(args.opt)
-opt = 'rmsprop'
+opt = args.opt
 nb_epoch = args.epochs
 embedding_dim = args.embed
 
@@ -432,9 +498,6 @@ dropout_list = args.dropout
 dropout_p = dropout_list[0]
 activation = activation_list[0]
 filter_size = filter_widths[0]
-
-# Calculates all possible permutations from the model options selected
-perm = args.perm
 
 # ---------- Convolutional Neural Network ----------
 
@@ -461,29 +524,68 @@ if (perm is True):
         print("Selected Dropout rates " + str(dropout_list))
         print("Selected Activation functions " + str(activation_list))
         print("Calculating all possible model permutations")
-    s = [filter_widths, dropout_list, activation_list]
-    models = list(product(*s))
-    M = len(models)
-    print("Found " + str(M) + " possible models.")
-
-    if (query_yes_no("Do you wish to continue?")):
-        for m in models:
-            nn = cnn_build(max_features=max_features, maxlen=maxlen,
-                           embedding_dim=embedding_dim, filter_size=m[0],
-                           nb_filter=nb_filter, dropout_p=m[1],
-                           activation=m[2], summary=summary)
-            if (dry_run is False):
-                cnn_train(nn, X_train, y_train, batch_size=batch_size,
-                          nb_epoch=nb_epoch, validation_data=(X_test,
-                                                              y_test),
-                          val=True, opt=opt, verbose=verbose)
-
-            # Confusion Matrix code
-            print_cm(nn)
-            print("------------------------------------------------------")
+    if (parallel is True and len(filter_widths) > 1):
+        if (verbose > 0):
+            print("Selected parallel filters.")
+        s = [dropout_list, activation_list]
+        models = list(product(*s))
+        M = len(models)
+        print("Found " + str(M) + " possible models.")
+        if (query_yes_no("Do you wish to continue?")):
+            for m in models:
+                nn = cnn_parallel(max_features=max_features, maxlen=maxlen,
+                                  embedding_dim=embedding_dim,
+                                  ngram_filters=filter_widths,
+                                  nb_filter=nb_filter,
+                                  dropout_p=m[0],
+                                  activation=m[1],
+                                  summary=summary)
+                if (dry_run is False):
+                    cnn_train_parallel(nn, X_train, y_train,
+                                       ngram_filters=filter_widths,
+                                       validation_data=(X_test, y_test),
+                                       val=True,
+                                       batch_size=batch_size,
+                                       nb_epoch=nb_epoch,
+                                       opt=opt,
+                                       verbose=verbose)
+                    if (cm is True):
+                        # Confusion Matrix code
+                        print_cm(nn)
+                print("------------------------------------------------------")
+        else:
+            print("Aborting.")
+            print("======================================================")
     else:
-        print("Aborting.")
-        print("======================================================")
+        s = [filter_widths, dropout_list, activation_list]
+        models = list(product(*s))
+        M = len(models)
+        print("Found " + str(M) + " possible models.")
+
+        if (query_yes_no("Do you wish to continue?")):
+            for m in models:
+                nn = cnn_simple(max_features=max_features, maxlen=maxlen,
+                                embedding_dim=embedding_dim,
+                                filter_size=m[0],
+                                nb_filter=nb_filter,
+                                dropout_p=m[1],
+                                activation=m[2],
+                                summary=summary)
+                if (dry_run is False):
+                    cnn_train_simple(nn, X_train, y_train,
+                                     batch_size=batch_size,
+                                     nb_epoch=nb_epoch,
+                                     validation_data=(X_test, y_test),
+                                     val=True,
+                                     opt=opt,
+                                     verbose=verbose)
+                    if (cm is True):
+                        # Confusion Matrix code
+                        print_cm(nn)
+                print("------------------------------------------------------")
+        else:
+            print("Aborting.")
+            print("======================================================")
 
 else:
     if (verbose > 0):
@@ -496,13 +598,14 @@ else:
 # We will run the ConvNet with different filter sizes to determine the
 # optimal filter width first
     for fs in filter_widths:
-        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
-                       filter_size=fs, nb_filter=nb_filter,
-                       dropout_p=dropout_p, summary=summary)
+        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+                        filter_size=fs, nb_filter=nb_filter,
+                        dropout_p=dropout_p, summary=summary)
         if (dry_run is False):
-            cnn_train(nn, X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
-                      val=True, opt=opt, verbose=verbose)
+            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=(X_test, y_test), val=True,
+                             opt=opt, verbose=verbose)
         print("------------------------------------------------------")
 
 # After this, we can try the effects of different activation functions.
@@ -511,13 +614,14 @@ else:
 # probably go with tanh or ReLU.
 #
     for act in activation_list:
-        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
-                       filter_size=filter_size, nb_filter=nb_filter,
-                       dropout_p=dropout_p, summary=summary, activation=act)
+        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+                        filter_size=filter_size, nb_filter=nb_filter,
+                        dropout_p=dropout_p, summary=summary, activation=act)
         if (dry_run is False):
-            cnn_train(nn, X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
-                      val=True, opt=opt, verbose=verbose)
+            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=(X_test, y_test), val=True,
+                             opt=opt, verbose=verbose)
         print("------------------------------------------------------")
 
 # Also we can switch around with the dropout rate between (0.0, 0.5), but the
@@ -527,13 +631,14 @@ else:
 # However, all of this is pretty unnecessary if we only have 1 hidden layer.
 #
     for p in dropout_list:
-        nn = cnn_build(max_features, maxlen, embedding_dim=embedding_dim,
-                       filter_size=filter_size, nb_filter=nb_filter,
-                       dropout_p=p, summary=summary, activation=activation)
+        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+                        filter_size=filter_size, nb_filter=nb_filter,
+                        dropout_p=p, summary=summary, activation=activation)
         if (dry_run is False):
-            cnn_train(nn, X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=(X_test, y_test),
-                      val=True, opt=opt, verbose=verbose)
+            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=(X_test, y_test), val=True,
+                             opt=opt, verbose=verbose)
         print("------------------------------------------------------")
 
 # After we decide for an appropriate filter size, we can try out using the
