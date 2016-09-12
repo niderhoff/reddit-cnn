@@ -455,6 +455,8 @@ parser.add_argument('-E', '--embed', default=100, type=int,
                     help='embedding dimension (default: 100)')
 parser.add_argument('-l2', default=None, type=float,
                     help='l2 regularization for penultimate layer')
+parser.add_argument('-s', '--split', default=0.2, type=float,
+                    help='train/test split ratio (default: 0.1)')
 
 # Switches
 # For now this switch is always true.
@@ -500,6 +502,9 @@ perm = args.perm
 # Calculate confusion matrix?
 cm = args.cm
 
+# Train/Test split size
+split = args.split
+
 # TODO: check arguments for exceptions
 
 # ---------- Data gathering ----------
@@ -517,7 +522,7 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             subreddit_list=subreddit_list,
                                             max_features=max_features,
                                             maxlen=maxlen, minlen=minlen,
-                                            verbose=verbose)
+                                            verbose=verbose, split=split)
 
 print("======================================================")
 
