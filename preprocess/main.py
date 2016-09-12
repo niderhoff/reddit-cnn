@@ -176,7 +176,6 @@ def append_corpus_until_done(current_batch, qry_lmt,
     Todo:
         *   Code to exclude posts that include urls or are [deleted]
     """
-
     for row in current_batch:
         # Different checks to see if a post met the criteria
         if (no_urls is True):

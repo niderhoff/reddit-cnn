@@ -98,7 +98,7 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten, Merge
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.optimizers import SGD
-from keras.regularizers import l1l2
+from keras.regularizers import l2, l1l2
 # from keras.utils.visualize_util import plot
 from keras.datasets import imdb
 
@@ -250,7 +250,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
 
 
 def cnn_simple(max_features, maxlen, embedding_dim, filter_size, nb_filter,
-               dropout_p, activation="relu", summary="full"):
+               dropout_p, activation="relu", summary="full", l2reg=None):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=maxlen))
@@ -263,7 +263,10 @@ def cnn_simple(max_features, maxlen, embedding_dim, filter_size, nb_filter,
     nn.add(MaxPooling1D(pool_length=maxlen - filter_size + 1))
     nn.add(Flatten())
     nn.add(Dropout(dropout_p))
-    nn.add(Dense(1))
+    if (l2reg is not None and l2reg is float):
+        nn.add(Dense(1), W_regularizer=l2(l2reg))
+    else:
+        nn.add(Dense(1))
     nn.add(Activation('sigmoid'))
     if (summary == "full"):
         print(nn.summary())
@@ -302,7 +305,7 @@ def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
 
 
 def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
-                 dropout_p, activation="relu", summary="full"):
+                 dropout_p, activation="relu", summary="full", l2reg=None):
     conv_filters = []
     for n_gram in ngram_filters:
         sequential = Sequential()
@@ -317,8 +320,19 @@ def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
     model = Sequential()
     model.add(Merge(conv_filters, mode='concat'))
     model.add(Dropout(dropout_p))
-    model.add(Dense(1))
+    if (l2reg is not None and l2reg is float):
+        model.add(Dense(1), W_regularizer=l2(l2reg))
+    else:
+        model.add(Dense(1))
     model.add(Activation("sigmoid"))
+    if (summary == "full"):
+        print(model.summary())
+    elif (summary == "short"):
+        summary = "MF " + str(max_features) + " | Len " + str(maxlen) + \
+                  " | Embed " + str(embedding_dim) + " | F " + \
+                  str(ngram_filters) + "x" + str(nb_filter) + " | Drop " + \
+                  str(dropout_p) + " | " + activation
+        print(summary)
     return model
 
 
@@ -386,9 +400,9 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
         return model.evaluate(X_test, y_test, verbose=0)
 
 
-def print_cm(nn=None):
+def print_cm(nn, X_test, y_test, batch_size=32):
     print("Confusion Matrix (frequency, normalized):")
-    y_pred = nn.predict_classes(X_test, batch_size=32, verbose=0)
+    y_pred = nn.predict_classes(X_test, batch_size=batch_size, verbose=0)
     cm = confusion_matrix(y_test, y_pred)
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
@@ -439,6 +453,8 @@ parser.add_argument('-D', '--dropout', nargs='*', default=[0.25], type=float,
                     help='dropout percentages (default: [0.25])')
 parser.add_argument('-E', '--embed', default=100, type=int,
                     help='embedding dimension (default: 100)')
+parser.add_argument('-l2', default=None, type=float,
+                    help='l2 regularization for penultimate layer')
 
 # Switches
 # For now this switch is always true.
@@ -500,7 +516,7 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             qry_lmt=qry_lmt,
                                             subreddit_list=subreddit_list,
                                             max_features=max_features,
-                                            maxlen=maxlen,
+                                            maxlen=maxlen, minlen=minlen,
                                             verbose=verbose)
 
 print("======================================================")
@@ -538,6 +554,7 @@ batch_size = args.batch_size
 opt = args.opt
 nb_epoch = args.epochs
 embedding_dim = args.embed
+l2reg = args.l2
 
 # Hyperparameter lists
 filter_widths = args.filters
@@ -589,6 +606,7 @@ if (perm is True):
                                   nb_filter=nb_filter,
                                   dropout_p=m[0],
                                   activation=m[1],
+                                  l2reg=l2reg,
                                   summary=summary)
                 if (dry_run is False):
                     cnn_train_parallel(nn, X_train, y_train,
@@ -601,7 +619,10 @@ if (perm is True):
                                        verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
-                        print_cm(nn)
+                        concat_X_test = []
+                        for i in range(len(filter_widths)):
+                            concat_X_test.append(X_test)
+                        print_cm(nn, concat_X_test, y_test)
                 print("------------------------------------------------------")
         else:
             print("Aborting.")
@@ -620,6 +641,7 @@ if (perm is True):
                                 nb_filter=nb_filter,
                                 dropout_p=m[1],
                                 activation=m[2],
+                                l2reg=l2reg,
                                 summary=summary)
                 if (dry_run is False):
                     cnn_train_simple(nn, X_train, y_train,
