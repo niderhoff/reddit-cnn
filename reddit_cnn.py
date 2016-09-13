@@ -526,6 +526,7 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             subreddit_list=subreddit_list,
                                             max_features=max_features,
                                             maxlen=maxlen, minlen=minlen,
+                                            seqlen=seqlen,
                                             verbose=verbose, split=split)
 
 print("======================================================")
