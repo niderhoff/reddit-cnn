@@ -140,7 +140,7 @@ def query_yes_no(question, default="yes"):
                              "(or 'y' or 'n').\n")
 
 
-def get_sequences(corpus, max_features=5000, maxlen=100):
+def get_sequences(corpus, max_features=5000, seqlen=100):
     """
     Will convert the corpus to a word index and pad the resulting
     sequences to the maximum length if they fall short.
@@ -158,7 +158,7 @@ def get_sequences(corpus, max_features=5000, maxlen=100):
     tokenized = Tokenizer(nb_words=max_features)
     tokenized.fit_on_texts(corpus)
     seq = tokenized.texts_to_sequences(corpus)
-    X = sequence.pad_sequences(seq, maxlen)
+    X = sequence.pad_sequences(seq, seqlen)
     return X
 
 
@@ -188,14 +188,14 @@ def get_labels_binary(labels, threshold=1):
 
 
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
-             max_features=5000, minlen=5, maxlen=100,
+             max_features=5000, minlen=5, maxlen=100, seqlen=100,
              minscore=None, maxscore=None, split=0.2, verbose=1):
     if (dataset.lower() == "reddit"):
         raw_corpus, corpus, labels, strata = pre.get_corpora(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             minscore=minscore, maxscore=maxscore,
             batch_size=qry_lmt/10, verbose=verbose)
-        X = get_sequences(corpus, max_features, maxlen)
+        X = get_sequences(corpus, max_features, seqlen)
         y = get_labels_binary(labels, 1)
 
         np.random.seed(1234)
@@ -230,8 +230,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
     elif (dataset.lower() == "imdb"):
         (X_train, y_train), (X_test, y_test) = imdb.load_data(
                                                     nb_words=max_features)
-        X_train = sequence.pad_sequences(X_train, maxlen=maxlen)
-        X_test = sequence.pad_sequences(X_test, maxlen=maxlen)
+        X_train = sequence.pad_sequences(X_train, maxlen=seqlen)
+        X_test = sequence.pad_sequences(X_test, maxlen=seqlen)
         if (verbose > 1):
             if (verbose > 2):
                 print("X_train :" + str(X_train))
@@ -249,18 +249,18 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         print(dataset + " is not a valid dataset.")
 
 
-def cnn_simple(max_features, maxlen, embedding_dim, filter_size, nb_filter,
+def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
                dropout_p, activation="relu", summary="full", l2reg=None):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
-                     input_length=maxlen))
+                     input_length=seqlen))
     nn.add(Dropout(dropout_p))
     nn.add(Convolution1D(
         nb_filter,
         filter_size,
         activation=activation
         ))
-    nn.add(MaxPooling1D(pool_length=maxlen - filter_size + 1))
+    nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
     nn.add(Flatten())
     nn.add(Dropout(dropout_p))
     if (l2reg is not None and l2reg is float):
@@ -271,7 +271,7 @@ def cnn_simple(max_features, maxlen, embedding_dim, filter_size, nb_filter,
     if (summary == "full"):
         print(nn.summary())
     elif (summary == "short"):
-        summary = "MF " + str(max_features) + " | Len " + str(maxlen) + \
+        summary = "MF " + str(max_features) + " | Len " + str(seqlen) + \
                   " | Embed " + str(embedding_dim) + " | F " + \
                   str(filter_size) + "x" + str(nb_filter) + " | Drop " + \
                   str(dropout_p) + " | " + activation
@@ -304,7 +304,7 @@ def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
         return(model)
 
 
-def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
+def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
                  dropout_p, activation="relu", summary="full", l2reg=None):
     conv_filters = []
     for n_gram in ngram_filters:
@@ -312,10 +312,10 @@ def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
         conv_filters.append(sequential)
         sequential.add(Embedding(input_dim=max_features,
                                  output_dim=embedding_dim,
-                                 input_length=maxlen))
+                                 input_length=seqlen))
         sequential.add(Dropout(dropout_p))
         sequential.add(Convolution1D(nb_filter, n_gram, activation=activation))
-        sequential.add(MaxPooling1D(pool_length=maxlen - n_gram + 1))
+        sequential.add(MaxPooling1D(pool_length=seqlen - n_gram + 1))
         sequential.add(Flatten())
     model = Sequential()
     model.add(Merge(conv_filters, mode='concat'))
@@ -328,7 +328,7 @@ def cnn_parallel(max_features, maxlen, embedding_dim, ngram_filters, nb_filter,
     if (summary == "full"):
         print(model.summary())
     elif (summary == "short"):
-        summary = "MF " + str(max_features) + " | Len " + str(maxlen) + \
+        summary = "MF " + str(max_features) + " | Len " + str(seqlen) + \
                   " | Embed " + str(embedding_dim) + " | F " + \
                   str(ngram_filters) + "x" + str(nb_filter) + " | Drop " + \
                   str(dropout_p) + " | " + activation
@@ -424,6 +424,9 @@ parser.add_argument('-q', '--qry_lmt', default=10000, type=int,
                     help='amount of data to query (default: 10000)')
 parser.add_argument('--max_features', default=5000, type=int,
                     help='size of vocabulary (default: 5000)')
+parser.add_argument('--seqlen', default=100, type=int,
+                    help='length to which sequences will be padded \
+                    (default: 100)')
 parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('--minlen', default=0, type=int,
@@ -514,7 +517,8 @@ qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
 subreddit_list = "'AskReddit'"
 
 max_features = args.max_features  # size of the vocabulary used
-maxlen = args.maxlen  # length to which each sentence is padded
+seqlen = args.seqlen  # length to which each sentence is padded
+maxlen = args.maxlen  # maximum length of comment to be considered
 minlen = args.minlen  # minimum length of a comment to be considered
 
 X_train, X_test, y_train, y_test = get_data(args.dataset,
@@ -605,7 +609,7 @@ if (perm is True):
         print("Found " + str(M) + " possible models.")
         if (query_yes_no("Do you wish to continue?")):
             for m in models:
-                nn = cnn_parallel(max_features=max_features, maxlen=maxlen,
+                nn = cnn_parallel(max_features=max_features, seqlen=seqlen,
                                   embedding_dim=embedding_dim,
                                   ngram_filters=filter_widths,
                                   nb_filter=nb_filter,
@@ -640,7 +644,7 @@ if (perm is True):
 
         if (query_yes_no("Do you wish to continue?")):
             for m in models:
-                nn = cnn_simple(max_features=max_features, maxlen=maxlen,
+                nn = cnn_simple(max_features=max_features, seqlen=seqlen,
                                 embedding_dim=embedding_dim,
                                 filter_size=m[0],
                                 nb_filter=nb_filter,
@@ -675,7 +679,7 @@ else:
 # We will run the ConvNet with different filter sizes to determine the
 # optimal filter width first
     for fs in filter_widths:
-        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
                         filter_size=fs, nb_filter=nb_filter,
                         dropout_p=dropout_p, summary=summary)
         if (dry_run is False):
@@ -691,7 +695,7 @@ else:
 # probably go with tanh or ReLU.
 #
     for act in activation_list:
-        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
                         filter_size=filter_size, nb_filter=nb_filter,
                         dropout_p=dropout_p, summary=summary, activation=act)
         if (dry_run is False):
@@ -708,7 +712,7 @@ else:
 # However, all of this is pretty unnecessary if we only have 1 hidden layer.
 #
     for p in dropout_list:
-        nn = cnn_simple(max_features, maxlen, embedding_dim=embedding_dim,
+        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
                         filter_size=filter_size, nb_filter=nb_filter,
                         dropout_p=p, summary=summary, activation=activation)
         if (dry_run is False):
@@ -732,7 +736,7 @@ else:
 # [100, 600]. If the optimal is close to the border, one should try going
 # beyond that.
 #
-# for maxlen in range(100, 650, 50):
+# for seqlen in range(100, 650, 50):
 #    ...
 
 # 1-max-pooling is usually the best, but we can also try out k-max [5,10,15,20]
@@ -748,7 +752,7 @@ else:
 
 # opt = SGD(lr=0.1)
 # print("Optimizer set to " + str(opt))
-# nn = cnn_build(max_features, maxlen, embedding_dim=100,
+# nn = cnn_build(max_features, seqlen, embedding_dim=100,
 #                filter_size=filter_size, nb_filter=nb_filter,
 #                dropout_p=dropout_p, summary="short", activation=activation)
 # cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
