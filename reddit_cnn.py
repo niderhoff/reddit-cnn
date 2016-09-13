@@ -521,6 +521,10 @@ seqlen = args.seqlen  # length to which each sentence is padded
 maxlen = args.maxlen  # maximum length of comment to be considered
 minlen = args.minlen  # minimum length of a comment to be considered
 
+if (seqlen > maxlen):
+    print("padding length is greater than actual length of the comments.")
+    print("setting padding length (" + str(seqlen) + ") to " + str(maxlen))
+
 X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             qry_lmt=qry_lmt,
                                             subreddit_list=subreddit_list,
