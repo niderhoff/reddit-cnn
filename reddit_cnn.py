@@ -252,19 +252,20 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
 
 def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
                dropout_p, activation="relu", summary="full", l2reg=None,
-               l1reg=None, batchnorm=None):
+               l1reg=None, batchnorm=None, layers=1):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=seqlen))
     nn.add(Dropout(dropout_p))
-    nn.add(Convolution1D(
-        nb_filter,
-        filter_size,
-        activation=activation
-        ))
-    nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
-    nn.add(Flatten())
-    nn.add(Dropout(dropout_p))
+    for i in range(1, layers + 1):
+        nn.add(Convolution1D(
+            nb_filter,
+            filter_size,
+            activation=activation
+            ))
+        nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
+        nn.add(Flatten())
+        nn.add(Dropout(dropout_p))
     if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
             float):
         nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
@@ -481,6 +482,8 @@ parser.add_argument('-s', '--split', default=0.2, type=float,
                     help='train/test split ratio (default: 0.1)')
 parser.add_argument('--batchnorm', default=False, action='store_true',
                     help='add Batch Normalization to activations')
+parser.add_argument('-L', '--layers', default=1, type=int,
+                    help='number of convolutional layers (default=1)')
 
 # Switches
 # For now this switch is always true.
@@ -592,6 +595,7 @@ embedding_dim = args.embed
 l1reg = args.l1
 l2reg = args.l2
 batchnorm = args.batchnorm
+layers = args.layers
 
 # Hyperparameter lists
 filter_widths = args.filters
@@ -645,6 +649,7 @@ if (perm is True):
                                   activation=m[1],
                                   l2reg=l2reg,
                                   l1reg=l1reg,
+                                  layers=layers,
                                   batchnorm=batchnorm,
                                   summary=summary)
                 if (dry_run is False):
@@ -682,6 +687,7 @@ if (perm is True):
                                 activation=m[2],
                                 l2reg=l2reg,
                                 l1reg=l1reg,
+                                layers=layers,
                                 batchnorm=batchnorm,
                                 summary=summary)
                 if (dry_run is False):
