@@ -95,10 +95,11 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten, Merge
+from keras.layers.normalization import BatchNormalization
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.optimizers import SGD
-from keras.regularizers import l2, l1l2
+from keras.regularizers import l1, l2, l1l2
 # from keras.utils.visualize_util import plot
 from keras.datasets import imdb
 
@@ -250,7 +251,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
 
 
 def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
-               dropout_p, activation="relu", summary="full", l2reg=None):
+               dropout_p, activation="relu", summary="full", l2reg=None,
+               l1reg=None, batchnorm=None):
     nn = Sequential()
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=seqlen))
@@ -263,10 +265,17 @@ def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
     nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
     nn.add(Flatten())
     nn.add(Dropout(dropout_p))
-    if (l2reg is not None and l2reg is float):
+    if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
+            float):
+        nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
+    elif (l2reg is not None and l2reg is float):
         nn.add(Dense(1), W_regularizer=l2(l2reg))
+    elif (l1reg is not None and l1reg is float):
+        nn.add(Dense(1), W_regularizer=l1(l1reg))
     else:
         nn.add(Dense(1))
+    if (batchnorm is True):
+        nn.add(BatchNormalization())
     nn.add(Activation('sigmoid'))
     if (summary == "full"):
         print(nn.summary())
@@ -305,7 +314,8 @@ def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
 
 
 def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
-                 dropout_p, activation="relu", summary="full", l2reg=None):
+                 dropout_p, activation="relu", summary="full", l2reg=None,
+                 l1reg=None, batchnorm=None):
     conv_filters = []
     for n_gram in ngram_filters:
         sequential = Sequential()
@@ -320,10 +330,17 @@ def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
     model = Sequential()
     model.add(Merge(conv_filters, mode='concat'))
     model.add(Dropout(dropout_p))
-    if (l2reg is not None and l2reg is float):
-        model.add(Dense(1), W_regularizer=l2(l2reg))
+    if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
+            float):
+        nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
+    elif (l2reg is not None and l2reg is float):
+        nn.add(Dense(1), W_regularizer=l2(l2reg))
+    elif (l1reg is not None and l1reg is float):
+        nn.add(Dense(1), W_regularizer=l1(l1reg))
     else:
-        model.add(Dense(1))
+        nn.add(Dense(1))
+    if (batchnorm is True):
+        nn.add(BatchNormalization())
     model.add(Activation("sigmoid"))
     if (summary == "full"):
         print(model.summary())
@@ -456,10 +473,14 @@ parser.add_argument('-D', '--dropout', nargs='*', default=[0.25], type=float,
                     help='dropout percentages (default: [0.25])')
 parser.add_argument('-E', '--embed', default=100, type=int,
                     help='embedding dimension (default: 100)')
+parser.add_argument('-l1', default=None, type=float,
+                    help='l1 regularization for penultimate layer')
 parser.add_argument('-l2', default=None, type=float,
                     help='l2 regularization for penultimate layer')
 parser.add_argument('-s', '--split', default=0.2, type=float,
                     help='train/test split ratio (default: 0.1)')
+parser.add_argument('-b', '--batchnorm', default=False, action='store_true',
+                    help='add Batch Normalization to activations')
 
 # Switches
 # For now this switch is always true.
@@ -568,7 +589,9 @@ batch_size = args.batch_size
 opt = args.opt
 nb_epoch = args.epochs
 embedding_dim = args.embed
+l1reg = args.l1
 l2reg = args.l2
+batchnorm = args.batchnorm
 
 # Hyperparameter lists
 filter_widths = args.filters
@@ -621,6 +644,8 @@ if (perm is True):
                                   dropout_p=m[0],
                                   activation=m[1],
                                   l2reg=l2reg,
+                                  l1reg=l1reg,
+                                  batchnorm=batchnorm,
                                   summary=summary)
                 if (dry_run is False):
                     cnn_train_parallel(nn, X_train, y_train,
@@ -656,6 +681,8 @@ if (perm is True):
                                 dropout_p=m[1],
                                 activation=m[2],
                                 l2reg=l2reg,
+                                l1reg=l1reg,
+                                batchnorm=batchnorm,
                                 summary=summary)
                 if (dry_run is False):
                     cnn_train_simple(nn, X_train, y_train,
