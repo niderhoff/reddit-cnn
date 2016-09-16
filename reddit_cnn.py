@@ -479,7 +479,7 @@ parser.add_argument('-l2', default=None, type=float,
                     help='l2 regularization for penultimate layer')
 parser.add_argument('-s', '--split', default=0.2, type=float,
                     help='train/test split ratio (default: 0.1)')
-parser.add_argument('-b', '--batchnorm', default=False, action='store_true',
+parser.add_argument('--batchnorm', default=False, action='store_true',
                     help='add Batch Normalization to activations')
 
 # Switches
