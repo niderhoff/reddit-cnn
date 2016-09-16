@@ -264,8 +264,8 @@ def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
             activation=activation
             ))
         nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
-        nn.add(Flatten())
-        nn.add(Dropout(dropout_p))
+    nn.add(Flatten())
+    nn.add(Dropout(dropout_p))
     if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
             float):
         nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
