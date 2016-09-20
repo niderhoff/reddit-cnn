@@ -79,6 +79,7 @@ TODO:
 *   add option to display+print model plot
 *   add option to time benchmark
 *   catch argument exceptions
+*   update documentation
 """
 
 from __future__ import print_function
@@ -106,6 +107,7 @@ from keras.datasets import imdb
 import preprocess as pre
 
 
+# ---------- General purpose functions ----------
 def query_yes_no(question, default="yes"):
     """
     Ask a yes/no question via raw_input() and return their answer.
@@ -141,6 +143,7 @@ def query_yes_no(question, default="yes"):
                              "(or 'y' or 'n').\n")
 
 
+# ---------- Data prep ----------
 def get_sequences(corpus, max_features=5000, seqlen=100):
     """
     Will convert the corpus to a word index and pad the resulting
@@ -250,6 +253,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         print(dataset + " is not a valid dataset.")
 
 
+# ---------- All the models we can call ----------
 def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
                dropout_p, activation="relu", summary="full", l2reg=None,
                l1reg=None, batchnorm=None, layers=1):
@@ -257,13 +261,12 @@ def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
     nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
                      input_length=seqlen))
     nn.add(Dropout(dropout_p))
-    for i in range(1, layers + 1):
-        nn.add(Convolution1D(
-            nb_filter,
-            filter_size,
-            activation=activation
-            ))
-        nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
+    nn.add(Convolution1D(
+        nb_filter,
+        filter_size,
+        activation=activation
+        ))
+    nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
     nn.add(Flatten())
     nn.add(Dropout(dropout_p))
     if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
@@ -328,9 +331,9 @@ def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
         sequential.add(Convolution1D(nb_filter, n_gram, activation=activation))
         sequential.add(MaxPooling1D(pool_length=seqlen - n_gram + 1))
         sequential.add(Flatten())
-    model = Sequential()
-    model.add(Merge(conv_filters, mode='concat'))
-    model.add(Dropout(dropout_p))
+    nn = Sequential()
+    nn.add(Merge(conv_filters, mode='concat'))
+    nn.add(Dropout(dropout_p))
     if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
             float):
         nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
@@ -342,16 +345,16 @@ def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
         nn.add(Dense(1))
     if (batchnorm is True):
         nn.add(BatchNormalization())
-    model.add(Activation("sigmoid"))
+    nn.add(Activation("sigmoid"))
     if (summary == "full"):
-        print(model.summary())
+        print(nn.summary())
     elif (summary == "short"):
         summary = "MF " + str(max_features) + " | Len " + str(seqlen) + \
                   " | Embed " + str(embedding_dim) + " | F " + \
                   str(ngram_filters) + "x" + str(nb_filter) + " | Drop " + \
                   str(dropout_p) + " | " + activation
         print(summary)
-    return model
+    return nn
 
 
 def cnn_train_parallel(model, X_train, y_train, ngram_filters,
@@ -386,6 +389,7 @@ def cnn_train_parallel(model, X_train, y_train, ngram_filters,
         return(model)
 
 
+# ---------- Diagnostics and Benchmarks ----------
 def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
              nb_epoch=10, reg=l1l2(l1=0.01, l2=0.01), verbose=1):
     X_test, y_test = validation_data
@@ -437,7 +441,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--dataset', default='reddit',
                     help='dataset to be used (default: \'reddit\')')
 
-# General Hyperparameters
+# Post fetching
 parser.add_argument('-q', '--qry_lmt', default=10000, type=int,
                     help='amount of data to query (default: 10000)')
 parser.add_argument('--max_features', default=5000, type=int,
@@ -449,8 +453,11 @@ parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('--minlen', default=0, type=int,
                     help='minimum comment length (default: 0)')
+
+# General Hyperparameters
 parser.add_argument('-b', '--batch_size', default=32, type=int,
                     help='batch size (default: 32)')
+
 # --opt will expect a keras.optimizer call
 parser.add_argument('-o', '--opt', default='rmsprop',
                     help='optimizer flag (default: \'rmsprop\')')
@@ -468,6 +475,8 @@ parser.add_argument('-F', '--filters', nargs='*', default=[3], type=int,
 # functions, e.g. -A 'tanh' 'relu'.
 parser.add_argument('-A', '--activation', nargs='*', default=['relu'],
                     help='activation functions to use (default: [\'relu\'])')
+
+# Regularization
 # --dropout will expect a list of floats corresponding to different dropout
 # rates, e.g. -D 0.1 0.25 0.5
 parser.add_argument('-D', '--dropout', nargs='*', default=[0.25], type=float,
@@ -480,10 +489,15 @@ parser.add_argument('-l2', default=None, type=float,
                     help='l2 regularization for penultimate layer')
 parser.add_argument('-s', '--split', default=0.2, type=float,
                     help='train/test split ratio (default: 0.1)')
+# Batchnorm is not working with cuda 4
 parser.add_argument('--batchnorm', default=False, action='store_true',
                     help='add Batch Normalization to activations')
-parser.add_argument('-L', '--layers', default=1, type=int,
-                    help='number of convolutional layers (default=1)')
+
+# Multiple layers not working as of yet.
+# parser.add_argument('-L', '--layers', default=1, type=int,
+#                     help='number of convolutional layers (default=1)')
+parser.add_argument('--model', default="simple",
+                    help="the type of model (simple/parallel/twolayer)")
 
 # Switches
 # For now this switch is always true.
@@ -494,19 +508,18 @@ parser.add_argument('--logreg', action='store_true',
                     help='calculate logreg benchmark? (default: False)')
 parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
-parser.add_argument('--parallel', default=False, action='store_true',
-                    help='run filter sizes in parallel (default: False)')
 parser.add_argument('--cm', default=False, action='store_true',
                     help='calculates confusion matrix (default: False)')
 
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
-parser.add_argument('-f', '--file', default=None,
-                    help='file to output to (default: None)')
+# parser.add_argument('-f', '--file', default=None,
+#                     help='file to output to (default: None)')
 
 args = parser.parse_args()
 
+# ---------- Store command line argument variables ----------
 # Verbosity levels
 # 0: nothing
 # 1: only endresults per model
@@ -520,9 +533,6 @@ if (verbose > 0):
 # Dry run yes/no?
 dry_run = args.dry
 
-# Parallel filters?
-parallel = args.parallel
-
 # Calculates all possible permutations from the model options selected
 perm = args.perm
 
@@ -531,6 +541,29 @@ cm = args.cm
 
 # Train/Test split size
 split = args.split
+
+# Model selection
+model = args.model
+
+# Hyperparameter constants
+nb_filter = args.nb_filter
+batch_size = args.batch_size
+opt = args.opt
+nb_epoch = args.epochs
+embedding_dim = args.embed
+l1reg = args.l1
+l2reg = args.l2
+batchnorm = args.batchnorm
+
+# Hyperparameter lists
+filter_widths = args.filters
+activation_list = args.activation
+dropout_list = args.dropout
+
+# Permanent hyperparameters
+dropout_p = dropout_list[0]
+activation = activation_list[0]
+filter_size = filter_widths[0]
 
 # TODO: check arguments for exceptions
 
@@ -585,28 +618,6 @@ if (args.logreg is True):
         print("------------------------------------------------------")
     print("======================================================")
 
-# ---------- Store command line argument variables ----------
-# Hyperparameter constants
-nb_filter = args.nb_filter
-batch_size = args.batch_size
-opt = args.opt
-nb_epoch = args.epochs
-embedding_dim = args.embed
-l1reg = args.l1
-l2reg = args.l2
-batchnorm = args.batchnorm
-layers = args.layers
-
-# Hyperparameter lists
-filter_widths = args.filters
-activation_list = args.activation
-dropout_list = args.dropout
-
-# Permanent hyperparameters
-dropout_p = dropout_list[0]
-activation = activation_list[0]
-filter_size = filter_widths[0]
-
 # ---------- Convolutional Neural Network ----------
 
 # To find the optimal network structure, we will use the method proposed
@@ -626,13 +637,14 @@ if (verbose > 0):
 else:
     summary = "none"
 
+
 if (perm is True):
     if (verbose > 0):
         print("Selected filter sizes " + str(filter_widths))
         print("Selected Dropout rates " + str(dropout_list))
         print("Selected Activation functions " + str(activation_list))
         print("Calculating all possible model permutations")
-    if (parallel is True and len(filter_widths) > 1):
+    if (model == "parallel" and len(filter_widths) > 1):
         if (verbose > 0):
             print("Selected parallel filters.")
         s = [dropout_list, activation_list]
@@ -649,7 +661,6 @@ if (perm is True):
                                   activation=m[1],
                                   l2reg=l2reg,
                                   l1reg=l1reg,
-                                  layers=layers,
                                   batchnorm=batchnorm,
                                   summary=summary)
                 if (dry_run is False):
@@ -671,7 +682,7 @@ if (perm is True):
         else:
             print("Aborting.")
             print("======================================================")
-    else:
+    elif (model == "simple"):
         s = [filter_widths, dropout_list, activation_list]
         models = list(product(*s))
         M = len(models)
@@ -687,7 +698,6 @@ if (perm is True):
                                 activation=m[2],
                                 l2reg=l2reg,
                                 l1reg=l1reg,
-                                layers=layers,
                                 batchnorm=batchnorm,
                                 summary=summary)
                 if (dry_run is False):
@@ -702,10 +712,41 @@ if (perm is True):
                         # Confusion Matrix code
                         print_cm(nn)
                 print("------------------------------------------------------")
-        else:
-            print("Aborting.")
-            print("======================================================")
+    elif (model == "twolayer"):
+        s = [filter_widths, dropout_list, activation_list]
+        models = list(product(*s))
+        M = len(models)
+        print("Found " + str(M) + " possible models.")
 
+        if (query_yes_no("Do you wish to continue?")):
+            for m in models:
+                nn = cnn_twolayer(max_features=max_features, seqlen=seqlen,
+                                  embedding_dim=embedding_dim,
+                                  filter_size=m[0],
+                                  nb_filter=nb_filter,
+                                  dropout_p=m[1],
+                                  activation=m[2],
+                                  l2reg=l2reg,
+                                  l1reg=l1reg,
+                                  batchnorm=batchnorm,
+                                  summary=summary)
+                if (dry_run is False):
+                    cnn_train_twolayer(nn, X_train, y_train,
+                                       batch_size=batch_size,
+                                       nb_epoch=nb_epoch,
+                                       validation_data=(X_test, y_test),
+                                       val=True,
+                                       opt=opt,
+                                       verbose=verbose)
+                    if (cm is True):
+                        # Confusion Matrix code
+                        print_cm(nn)
+                print("------------------------------------------------------")
+    else:
+        print("The model selected is not known to the program: " +
+              str(model) + ". Aborting.")
+        print("Or didn't give sufficient parameters for the model. (Filters?)")
+        print("======================================================")
 else:
     if (verbose > 0):
         print('You chose not to calculate all model permutations. ' +
