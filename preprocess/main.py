@@ -92,7 +92,7 @@ def db_query(db_conn, subreddit_list, limit):
 
 
 def get_corpora(subreddit_list, qry_lmt=10000, batch_size=1000,
-                minlen=5, maxlen=100, minscore=None, maxscore=None,
+                minlen=5, maxlen=100, scorerange=None, negrange=False,
                 no_urls=False, no_deleted=False, replace_numbers=False,
                 verbose=1):
     """
@@ -134,7 +134,7 @@ def get_corpora(subreddit_list, qry_lmt=10000, batch_size=1000,
             break
         status, raw_corpus, corpus, labels, strata = append_corpus_until_done(
             rows, qry_lmt, raw_corpus, corpus, labels, strata, minlen, maxlen,
-            minscore, maxscore, no_urls, no_deleted, replace_numbers)
+            scorerange, negrange, no_urls, no_deleted, replace_numbers)
         if (status is False):
             break
         i += 1
@@ -146,8 +146,8 @@ def get_corpora(subreddit_list, qry_lmt=10000, batch_size=1000,
 
 def append_corpus_until_done(current_batch, qry_lmt,
                              raw_corpus, corpus, labels, strata,
-                             minlen=20, maxlen=100, minscore=None,
-                             maxscore=None, no_urls=False, no_deleted=False,
+                             minlen=20, maxlen=100, scorerange=None,
+                             negrange=False, no_urls=False, no_deleted=False,
                              replace_numbers=False):
     """
     Used by get_corpora(...). Will read from the database in batches, checks
@@ -175,6 +175,8 @@ def append_corpus_until_done(current_batch, qry_lmt,
 
     Todo:
         *   Code to exclude posts that include urls or are [deleted]
+        *   regex for url detection
+        *   regex for deleted detection
     """
     for row in current_batch:
         # Different checks to see if a post met the criteria
@@ -187,12 +189,14 @@ def append_corpus_until_done(current_batch, qry_lmt,
         else:
             body = clean_comment(row[1])
             check = True
-            if (maxscore is not None):
-                if (row[2] > maxscore):
+            if (negrange is True):
+                if (row[2] in scorerange):
                     check = False
-            if (minscore is not None):
-                if (row[2] < minscore):
+                    print(str(row[2] + "is not wanted."))
+            elif (negrange is False):
+                if (row[2] not in scorerange):
                     check = False
+                    print(str(row[2] + "is not wanted."))
             if (len(body.split()) not in range(minlen, maxlen + 1)):
                 check = False
             if (check is True):

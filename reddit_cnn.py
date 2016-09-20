@@ -193,11 +193,11 @@ def get_labels_binary(labels, threshold=1):
 
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
-             minscore=None, maxscore=None, split=0.2, verbose=1):
+             scorerange=None, negrange=False, split=0.2, verbose=1):
     if (dataset.lower() == "reddit"):
         raw_corpus, corpus, labels, strata = pre.get_corpora(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
-            minscore=minscore, maxscore=maxscore,
+            scorerange=scorerange, negrange=negrange,
             batch_size=qry_lmt/10, verbose=verbose)
         X = get_sequences(corpus, max_features, seqlen)
         y = get_labels_binary(labels, 1)
@@ -453,6 +453,8 @@ parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('--minlen', default=0, type=int,
                     help='minimum comment length (default: 0)')
+parser.add_argument('--scorerange', default=None, type=int)
+parser.add_argument('--negrange', default=False, action='store_true')
 
 # General Hyperparameters
 parser.add_argument('-b', '--batch_size', default=32, type=int,
@@ -518,6 +520,7 @@ parser.add_argument('-v', '--verbose', default=2, type=int,
 #                     help='file to output to (default: None)')
 
 args = parser.parse_args()
+print(args)
 
 # ---------- Store command line argument variables ----------
 # Verbosity levels
@@ -577,6 +580,8 @@ max_features = args.max_features  # size of the vocabulary used
 seqlen = args.seqlen  # length to which each sentence is padded
 maxlen = args.maxlen  # maximum length of comment to be considered
 minlen = args.minlen  # minimum length of a comment to be considered
+scorerange = eval(args.scorerange)
+negrange = args.negrange
 
 if (seqlen > maxlen):
     print("padding length is greater than actual length of the comments.")
@@ -587,6 +592,8 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             subreddit_list=subreddit_list,
                                             max_features=max_features,
                                             maxlen=maxlen, minlen=minlen,
+                                            scorerange=scorerange,
+                                            negrange=negrange,
                                             seqlen=seqlen,
                                             verbose=verbose, split=split)
 
