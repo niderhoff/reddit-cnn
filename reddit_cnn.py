@@ -72,6 +72,7 @@ The data are available at
 
 TODO:
 
+*   test range, negrange
 *   actually more than 1 subreddit?
 *   init, activation
 *   k-fold crossvalidation
@@ -91,6 +92,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
 
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
@@ -179,7 +181,7 @@ def get_labels_binary(labels, threshold=1):
         np.array with binary classes
     """
     Y = np.asarray(labels)
-    Ybool = abs(Y) > threshold
+    Ybool = Y > threshold
     Ybin = Ybool.astype(int)
     if (verbose > 0):
         print('Y.shape: ' + str(Y.shape))
@@ -187,7 +189,6 @@ def get_labels_binary(labels, threshold=1):
             print('Y: ' + str(Y))
             print("Y > 1: " + str(Ybool))
             print("Y binary: " + str(Ybin))
-
     return np.expand_dims(Ybin, axis=1)
 
 
@@ -195,6 +196,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1):
     if (dataset.lower() == "reddit"):
+        global labels
+        global corpus
         raw_corpus, corpus, labels, strata = pre.get_corpora(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             scorerange=scorerange, negrange=negrange,
@@ -229,7 +232,10 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
                                          float(y_train.shape[0])))
             print('y_test mean: ' + str(sum(y_test > 0) /
                                         float(y_test.shape[0])))
-
+            print("min score: " + str(min(labels)))
+            print("max score: " + str(max(labels)))
+            print("min length: " + str(min(map(len, corpus))))
+            print("max length: " + str(max(map(len, corpus))))
         return (X_train, X_test, y_train, y_test)
     elif (dataset.lower() == "imdb"):
         (X_train, y_train), (X_test, y_test) = imdb.load_data(
@@ -247,7 +253,6 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
                                          float(y_train.shape[0])))
             print('y_test mean: ' + str(sum(y_test > 0) /
                                         float(y_test.shape[0])))
-
         return (X_train, X_test, y_train, y_test)
     else:
         print(dataset + " is not a valid dataset.")
@@ -314,7 +319,7 @@ def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
     else:
         model.compile(loss='binary_crossentropy', optimizer=opt)
         model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch)
-        return(model)
+    return(model)
 
 
 def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
@@ -425,6 +430,8 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
 def print_cm(nn, X_test, y_test, batch_size=32):
     print("Confusion Matrix (frequency, normalized):")
     y_pred = nn.predict_classes(X_test, batch_size=batch_size, verbose=0)
+    print(y_pred)
+    print(sum(y_pred)/len(y_pred))
     cm = confusion_matrix(y_test, y_pred)
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
@@ -453,8 +460,9 @@ parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('--minlen', default=0, type=int,
                     help='minimum comment length (default: 0)')
-parser.add_argument('--scorerange', default=None, type=int)
+parser.add_argument('--scorerange', nargs=2, default=None, type=int)
 parser.add_argument('--negrange', default=False, action='store_true')
+parser.add_argument('--balanced', default=False, action='store_true')
 
 # General Hyperparameters
 parser.add_argument('-b', '--batch_size', default=32, type=int,
@@ -578,10 +586,11 @@ subreddit_list = "'AskReddit'"
 
 max_features = args.max_features  # size of the vocabulary used
 seqlen = args.seqlen  # length to which each sentence is padded
-maxlen = args.maxlen  # maximum length of comment to be considered
-minlen = args.minlen  # minimum length of a comment to be considered
-scorerange = eval(args.scorerange)
+maxlen = int(args.maxlen)  # maximum length of comment to be considered
+minlen = int(args.minlen)  # minimum length of a comment to be considered
+scorerange = args.scorerange
 negrange = args.negrange
+balanced = args.balanced
 
 if (seqlen > maxlen):
     print("padding length is greater than actual length of the comments.")
@@ -596,6 +605,11 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             negrange=negrange,
                                             seqlen=seqlen,
                                             verbose=verbose, split=split)
+
+if (balanced is True):
+    X_train, y_train = pre.balance_dataset(X_train, y_train)
+    print("Balanced shape x " + str(X_train.shape) +
+          "; y: " + str(y_train.shape))
 
 print("======================================================")
 
@@ -708,13 +722,13 @@ if (perm is True):
                                 batchnorm=batchnorm,
                                 summary=summary)
                 if (dry_run is False):
-                    cnn_train_simple(nn, X_train, y_train,
-                                     batch_size=batch_size,
-                                     nb_epoch=nb_epoch,
-                                     validation_data=(X_test, y_test),
-                                     val=True,
-                                     opt=opt,
-                                     verbose=verbose)
+                    nn = cnn_train_simple(nn, X_train, y_train,
+                                          batch_size=batch_size,
+                                          nb_epoch=nb_epoch,
+                                          validation_data=(X_test, y_test),
+                                          val=True,
+                                          opt=opt,
+                                          verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
                         print_cm(nn)
@@ -747,7 +761,7 @@ if (perm is True):
                                        verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
-                        print_cm(nn)
+                        print_cm(nn, X_test, y_test)
                 print("------------------------------------------------------")
     else:
         print("The model selected is not known to the program: " +

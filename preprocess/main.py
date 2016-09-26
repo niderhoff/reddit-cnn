@@ -10,14 +10,15 @@ Usage:
     See `reddit_cnn.py`
 
 TODO:
-    *  actually more than 1 subreddit? (LIMIT will only get data from the first
-       subreddit in the list).
-    *  Make this a nice wrapper with classes etc.
-    *  Randomize data read
+    *  Make this an actual nice wrapper
+    *  Rewrite data cach to have balance dataset and true random from getgo
+       (start with line by line and see how fast it is.)
+    *  Add option to randomize subreddit on each read
 """
 
 import sqlite3
 import re
+import numpy as np
 
 
 def subreddits(subreddit_file="subreddits.txt"):
@@ -115,7 +116,6 @@ def get_corpora(subreddit_list, qry_lmt=10000, batch_size=1000,
     Returns:
         Tuple of raw_corpus, corpus, labels, and strata.
     """
-
     db = db_conn()
     c = db.cursor()
     c.execute("SELECT subreddit, body, score FROM May2015 \
@@ -190,13 +190,11 @@ def append_corpus_until_done(current_batch, qry_lmt,
             body = clean_comment(row[1])
             check = True
             if (negrange is True):
-                if (row[2] in scorerange):
+                if (row[2] in range(*scorerange)):
                     check = False
-                    print(str(row[2] + "is not wanted."))
             elif (negrange is False):
-                if (row[2] not in scorerange):
+                if (row[2] not in range(*scorerange)):
                     check = False
-                    print(str(row[2] + "is not wanted."))
             if (len(body.split()) not in range(minlen, maxlen + 1)):
                 check = False
             if (check is True):
@@ -233,3 +231,25 @@ def clean_comment(comment, replace_numbers=False):
         r = re.sub(s, subs[s], r)
     r = re.sub('[^A-Za-z0-9\.\,]+', ' ', r).strip()
     return(r)
+
+
+def balance_dataset(X, y, threshold=0):
+    # TODO: in die database subroutine einbauen, sodass wir die
+    # gewünschte länge erhalten am ende...
+    # TODO: er zieht irgendwie zu viele elemente ab??
+    pos_idx = np.where(y > threshold)[0]
+    neg_idx = np.where(y <= threshold)[0]
+    n_pos = len(pos_idx)
+    n_neg = len(neg_idx)
+    n_diff = n_pos - n_neg
+    if (n_diff > 0):
+        # remove n_diff elements from X which are positive
+        del_idx = np.random.choice(pos_idx, n_diff, replace=False)
+        new_X, new_y = (np.delete(X, del_idx, 0), np.delete(y, del_idx, 0))
+    elif (n_diff <= 0):
+        # remove n_diff elements from X which are negative
+        del_idx = np.random.choice(neg_idx, n_diff, replace=False)
+        new_X, new_y = (np.delete(X, del_idx, 0), np.delete(y, del_idx, 0))
+    else:
+        print("Nothing to do.")
+    return (new_X, new_y)
