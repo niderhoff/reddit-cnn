@@ -132,16 +132,17 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
             if (minlen is not None and len(body.split()) < minlen):
                 check = False
             if (balanced is True):
-                if (score > 1 and n_neg >= n_pos):
-                    # post with positive karma will only be added if number
-                    # of negative posts is greater than number of positive
-                    # or equal
-                    check = False
-                elif (score <= 1 and n_pos > n_neg):
+                if (score <= 1 and n_neg > n_pos):
                     # post with negative or neutral karma will be added
                     # if number of positive posts is greater than number of
                     # negative karma posts
                     check = False
+                elif (score > 1 and n_neg < n_pos):
+                    # post with positive karma will only be added if number
+                    # of negative posts is greater than number of positive
+                    # or equal
+                    check = False
+                print(str(n_pos) + " -" + str(n_neg))
             if (check is True):
                 strata.append(row[0])
                 raw_corpus.append(row[1])
