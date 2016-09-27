@@ -194,14 +194,15 @@ def get_labels_binary(labels, threshold=1):
 
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
-             scorerange=None, negrange=False, split=0.2, verbose=1):
+             scorerange=None, negrange=False, split=0.2, verbose=1,
+             balanced=False):
     if (dataset.lower() == "reddit"):
         global labels
         global corpus
         raw_corpus, corpus, labels, strata = pre.build_corpus(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             scorerange=scorerange, negrange=negrange,
-            batch_size=qry_lmt/10, verbose=verbose)
+            batch_size=qry_lmt/10, verbose=verbose, balanced=balanced)
         X = get_sequences(corpus, max_features, seqlen)
         y = get_labels_binary(labels, 1)
 
