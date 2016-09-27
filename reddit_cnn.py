@@ -107,7 +107,6 @@ TODO:
 *   catch commandline argument exceptions properly
 *   remove old default model code
 *   outsource model code to submodule
-*   implement subreddit selection to command line
 
 Known Bugs and Limitations:
 
@@ -488,7 +487,7 @@ parser = argparse.ArgumentParser(
 # 'imdb' or 'reddit' dataset?
 parser.add_argument('--dataset', default='reddit',
                     help='dataset to be used (default: \'reddit\')')
-parser.add_argument('--subreddits', default=None, nargs='*', type=str,
+parser.add_argument('--subreddits', default=None, nargs='*',
                     help='list of subreddits (default: None)')
 
 # Post fetching
@@ -627,7 +626,7 @@ filter_size = filter_widths[0]
 qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
 
 if (args.subreddits is not None):
-    subreddit_list = args.subreddits
+    subreddit_list = ', '.join("'{0}'".format(s) for s in args.subreddits)
 else:
     subreddit_list = pre.subreddits()
 
