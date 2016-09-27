@@ -526,6 +526,8 @@ parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
 # parser.add_argument('-f', '--file', default=None,
 #                     help='file to output to (default: None)')
+parser.add_argument('--fromfile', default=None,
+                    help="read from file.")
 
 args = parser.parse_args()
 print(args)
@@ -604,12 +606,8 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             scorerange=scorerange,
                                             negrange=negrange,
                                             seqlen=seqlen,
-                                            verbose=verbose, split=split)
-
-if (balanced is True):
-    X_train, y_train = pre.balance_dataset(X_train, y_train)
-    print("Balanced shape x " + str(X_train.shape) +
-          "; y: " + str(y_train.shape))
+                                            verbose=verbose, split=split,
+                                            balanced=balanced)
 
 print("======================================================")
 
