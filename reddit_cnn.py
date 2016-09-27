@@ -92,8 +92,6 @@ The data are available at
 
 TODO:
 
-*   add possibility to input data matrix from file so it must not be reread
-    from sqlite database every time (i.e. separate data grab and model build)
 *   add possibility to output to file (the results from the model)
 *   possibility to randomize selection from subreddits (as of now it will
     fill all data from first subreddit found if possible)
@@ -125,6 +123,7 @@ Known Bugs and Limitations:
 from __future__ import print_function
 import argparse
 import sys
+import os.path
 from itertools import product
 
 import numpy as np
@@ -231,13 +230,49 @@ def get_labels_binary(labels, threshold=1):
     return np.expand_dims(Ybin, axis=1)
 
 
+def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
+    print('corpus length: ' + str(len(corpus)))
+    print('corpus example: "' + str(corpus[1]) + '"')
+    print('labels length: ' + str(len(labels)))
+    print('corpus example: "' + str(corpus[1]) + '"')
+    if (verbose > 2):
+        print("labels: " + str(labels))
+        print("X_train :" + str(X_train))
+        print("X_train.shape: " + str(X_train.shape))
+        print("X_test.shape: " + str(X_test.shape))
+        print("y_train.shape: " + str(y_train.shape))
+        print("y_test.shape: " + str(y_test.shape))
+        print('y_train mean: ' + str(sum(y_train > 0) /
+              float(y_train.shape[0])))
+        print('y_test mean: ' + str(sum(y_test > 0) /
+              float(y_test.shape[0])))
+        print("min score: " + str(min(labels)))
+        print("max score: " + str(max(labels)))
+        print("min length: " + str(min(map(len, corpus))))
+        print("max length: " + str(max([len(x.split()) for x in corpus])))
+
+
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1,
-             balanced=False):
-    if (dataset.lower() == "reddit"):
-        global labels
-        global corpus
+             balanced=False, fromfile=None):
+    if (os.path.isfile(fromfile)):
+        f = np.load(fromfile)
+        raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
+                                              f['labels'], f['strata'])
+        X = get_sequences(corpus, max_features, seqlen)
+        y = get_labels_binary(labels, 1)
+
+        np.random.seed(1234)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            test_size=split)
+        if (verbose > 1):
+            print('Using dataset from file: ' + str(fromfile))
+            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
+            print('padded example: ' + str(X[1]))
+        return (X_train, X_test, y_train, y_test)
+    elif (dataset.lower() == "reddit"):
         raw_corpus, corpus, labels, strata = pre.build_corpus(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             scorerange=scorerange, negrange=negrange,
@@ -256,26 +291,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         # y_test = np.random.binomial(1, 0.66, 200)
         if (verbose > 1):
             print('Using reddit dataset.')
-            print('corpus length: ' + str(len(corpus)))
-            print('corpus example: "' + str(corpus[1]) + '"')
-            print('labels length: ' + str(len(labels)))
-            print('corpus example: "' + str(corpus[1]) + '"')
+            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
             print('padded example: ' + str(X[1]))
-            if (verbose > 2):
-                print("labels: " + str(labels))
-                print("X_train :" + str(X_train))
-            print("X_train.shape: " + str(X_train.shape))
-            print("X_test.shape: " + str(X_test.shape))
-            print("y_train.shape: " + str(y_train.shape))
-            print("y_test.shape: " + str(y_test.shape))
-            print('y_train mean: ' + str(sum(y_train > 0) /
-                                         float(y_train.shape[0])))
-            print('y_test mean: ' + str(sum(y_test > 0) /
-                                        float(y_test.shape[0])))
-            print("min score: " + str(min(labels)))
-            print("max score: " + str(max(labels)))
-            print("min length: " + str(min(map(len, corpus))))
-            print("max length: " + str(max([len(x.split()) for x in corpus])))
         return (X_train, X_test, y_train, y_test)
     elif (dataset.lower() == "imdb"):
         (X_train, y_train), (X_test, y_test) = imdb.load_data(
@@ -283,16 +300,10 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         X_train = sequence.pad_sequences(X_train, maxlen=seqlen)
         X_test = sequence.pad_sequences(X_test, maxlen=seqlen)
         if (verbose > 1):
+            print('Using imdb dataset.')
             if (verbose > 2):
                 print("X_train :" + str(X_train))
-            print("X_train.shape: " + str(X_train.shape))
-            print("X_test.shape: " + str(X_test.shape))
-            print("y_train.shape: " + str(y_train.shape))
-            print("y_test.shape: " + str(y_test.shape))
-            print('y_train mean: ' + str(sum(y_train > 0) /
-                                         float(y_train.shape[0])))
-            print('y_test mean: ' + str(sum(y_test > 0) /
-                                        float(y_test.shape[0])))
+            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
         return (X_train, X_test, y_train, y_test)
     else:
         print(dataset + " is not a valid dataset.")
@@ -568,11 +579,10 @@ parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
 # parser.add_argument('-f', '--file', default=None,
 #                     help='file to output to (default: None)')
-# parser.add_argument('--fromfile', default=None,
-#                     help="file input (default: None)")
+parser.add_argument('--fromfile', default=None,
+                    help="file input (default: None)")
 
 args = parser.parse_args()
-print(args)
 
 # ---------- Store command line argument variables ----------
 # Verbosity levels
@@ -584,6 +594,7 @@ print(args)
 verbose = args.verbose
 if (verbose > 0):
     print("verbosity level: " + str(verbose))
+    print(args)
 
 # Dry run yes/no?
 dry_run = args.dry
@@ -620,6 +631,8 @@ dropout_p = dropout_list[0]
 activation = activation_list[0]
 filter_size = filter_widths[0]
 
+fromfile = args.fromfile + ".npz"
+
 # TODO: check arguments for exceptions
 
 # ---------- Data gathering ----------
@@ -651,7 +664,8 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
                                             negrange=negrange,
                                             seqlen=seqlen,
                                             verbose=verbose, split=split,
-                                            balanced=balanced)
+                                            balanced=balanced,
+                                            fromfile=fromfile)
 
 print("======================================================")
 

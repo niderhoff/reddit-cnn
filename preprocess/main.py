@@ -17,6 +17,7 @@ TODO:
 """
 import sqlite3
 import re
+import numpy as np
 
 
 def db_conn(database="database.sqlite"):
@@ -85,7 +86,7 @@ def clean_comment(comment, replace_numbers=False):
 def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                  no_urls=False, no_deleted=False,
                  minlen=None, maxlen=None, scorerange=None, negrange=False,
-                 balanced=False, verbose=1):
+                 balanced=False, verbose=1, tofile=None):
     db = db_conn()
     c = db.cursor()
     query = "SELECT subreddit, body, score FROM May2015 WHERE"
@@ -164,6 +165,10 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
     if (verbose > 0):
         print("Found " + str(len(corpus)) + " comments valid to your query.")
         print("Done.")
+    if (tofile is not None):
+        np.savez(tofile, raw_corpus=raw_corpus, corpus=corpus, labels=labels,
+                 strata=strata)
+        print("Saved corpus data to " + tofile)
     return(raw_corpus, corpus, labels, strata)
 
 # ---- legacy functions (not used) ----
