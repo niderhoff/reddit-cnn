@@ -275,7 +275,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
             print("min score: " + str(min(labels)))
             print("max score: " + str(max(labels)))
             print("min length: " + str(min(map(len, corpus))))
-            print("max length: " + str(max(map(len, corpus))))
+            print("max length: " + str(max([len(x.split()) for x in corpus])))
         return (X_train, X_test, y_train, y_test)
     elif (dataset.lower() == "imdb"):
         (X_train, y_train), (X_test, y_test) = imdb.load_data(
