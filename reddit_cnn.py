@@ -731,7 +731,7 @@ if (perm is True):
                                           verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
-                        print_cm(nn)
+                        print_cm(nn, X_test, y_test)
                 print("------------------------------------------------------")
     elif (model == "twolayer"):
         s = [filter_widths, dropout_list, activation_list]
