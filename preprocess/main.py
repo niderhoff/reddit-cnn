@@ -189,10 +189,10 @@ def append_corpus_until_done(current_batch, qry_lmt,
         else:
             body = clean_comment(row[1])
             check = True
-            if (negrange is True):
+            if (negrange is True and scorerange is not None):
                 if (row[2] in range(*scorerange)):
                     check = False
-            elif (negrange is False):
+            elif (negrange is False and scorerange is not None):
                 if (row[2] not in range(*scorerange)):
                     check = False
             if (len(body.split()) not in range(minlen, maxlen + 1)):
