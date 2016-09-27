@@ -198,7 +198,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
     if (dataset.lower() == "reddit"):
         global labels
         global corpus
-        raw_corpus, corpus, labels, strata = pre.get_corpus(
+        raw_corpus, corpus, labels, strata = pre.build_corpus(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             scorerange=scorerange, negrange=negrange,
             batch_size=qry_lmt/10, verbose=verbose)
