@@ -142,7 +142,6 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                     # of negative posts is greater than number of positive
                     # or equal
                     check = False
-                print(str(n_pos) + " -" + str(n_neg))
             if (check is True):
                 strata.append(row[0])
                 raw_corpus.append(row[1])
