@@ -633,6 +633,8 @@ filter_size = filter_widths[0]
 
 if (args.fromfile is not None):
     fromfile = args.fromfile + ".npz"
+else:
+    fromfile = args.fromfile
 
 # TODO: check arguments for exceptions
 
