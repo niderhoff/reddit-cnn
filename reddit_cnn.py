@@ -631,7 +631,8 @@ dropout_p = dropout_list[0]
 activation = activation_list[0]
 filter_size = filter_widths[0]
 
-fromfile = args.fromfile + ".npz"
+if (args.fromfile is not None):
+    fromfile = args.fromfile + ".npz"
 
 # TODO: check arguments for exceptions
 
