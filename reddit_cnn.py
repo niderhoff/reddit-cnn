@@ -92,7 +92,6 @@ The data are available at
 
 TODO:
 
-*   add possibility to output to file (the results from the model)
 *   possibility to randomize selection from subreddits (as of now it will
     fill all data from first subreddit found if possible)
 *   implement non-random initialization for model
@@ -145,6 +144,30 @@ from keras.regularizers import l1, l2, l1l2
 from keras.datasets import imdb
 
 import preprocess as pre
+
+
+# ---------- General purpose classes ----------
+class Tee(object):
+    """
+    This is a basically an inside-python rewrite of the unix program 'tee'.
+    Will output to stdout and to a file simultaneously if log class is called
+    until __del__() is called.
+
+    Doing this from within python will make this platform-agnostic (i.e. work
+    in windows, too, without installing a version of tee there manually.)
+    """
+    def __init__(self, name, mode):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+
+    def __del__(self):
+        sys.stdout = self.stdout
+        self.file.close()
+
+    def write(self, data):
+        self.file.write(data)
+        self.stdout.write(data)
 
 
 # ---------- General purpose functions ----------
@@ -230,28 +253,6 @@ def get_labels_binary(labels, threshold=1):
     return np.expand_dims(Ybin, axis=1)
 
 
-def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
-    print('corpus length: ' + str(len(corpus)))
-    print('corpus example: "' + str(corpus[1]) + '"')
-    print('labels length: ' + str(len(labels)))
-    print('corpus example: "' + str(corpus[1]) + '"')
-    if (verbose > 2):
-        print("labels: " + str(labels))
-        print("X_train :" + str(X_train))
-        print("X_train.shape: " + str(X_train.shape))
-        print("X_test.shape: " + str(X_test.shape))
-        print("y_train.shape: " + str(y_train.shape))
-        print("y_test.shape: " + str(y_test.shape))
-        print('y_train mean: ' + str(sum(y_train > 0) /
-              float(y_train.shape[0])))
-        print('y_test mean: ' + str(sum(y_test > 0) /
-              float(y_test.shape[0])))
-        print("min score: " + str(min(labels)))
-        print("max score: " + str(max(labels)))
-        print("min length: " + str(min(map(len, corpus))))
-        print("max length: " + str(max([len(x.split()) for x in corpus])))
-
-
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1,
@@ -309,7 +310,29 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         print(dataset + " is not a valid dataset.")
 
 
-# ---------- All the models we can call ----------
+def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
+    print('corpus length: ' + str(len(corpus)))
+    print('corpus example: "' + str(corpus[1]) + '"')
+    print('labels length: ' + str(len(labels)))
+    print('corpus example: "' + str(corpus[1]) + '"')
+    if (verbose > 2):
+        print("labels: " + str(labels))
+        print("X_train :" + str(X_train))
+        print("X_train.shape: " + str(X_train.shape))
+        print("X_test.shape: " + str(X_test.shape))
+        print("y_train.shape: " + str(y_train.shape))
+        print("y_test.shape: " + str(y_test.shape))
+        print('y_train mean: ' + str(sum(y_train > 0) /
+              float(y_train.shape[0])))
+        print('y_test mean: ' + str(sum(y_test > 0) /
+              float(y_test.shape[0])))
+        print("min score: " + str(min(labels)))
+        print("max score: " + str(max(labels)))
+        print("min length: " + str(min(map(len, corpus))))
+        print("max length: " + str(max([len(x.split()) for x in corpus])))
+
+
+# ---------- Model definitions ----------
 def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
                dropout_p, activation="relu", summary="full", l2reg=None,
                l1reg=None, batchnorm=None, layers=1):
@@ -577,14 +600,19 @@ parser.add_argument('--cm', default=False, action='store_true',
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
-# parser.add_argument('-f', '--file', default=None,
-#                     help='file to output to (default: None)')
+parser.add_argument('-f', '--outfile', default=None,
+                    help='file to output results to (default: None)')
 parser.add_argument('--fromfile', default=None,
                     help="file input (default: None)")
 
 args = parser.parse_args()
 
-# ---------- Store command line argument variables ----------
+
+# ---------- Logging ----------
+# Initialize logfile if required
+if (args.outfile is not None):
+    log1 = Tee(args.outfile, 'w')
+
 # Verbosity levels
 # 0: nothing
 # 1: only endresults per model
@@ -596,6 +624,8 @@ if (verbose > 0):
     print("verbosity level: " + str(verbose))
     print(args)
 
+
+# ---------- Store command line argument variables ----------
 # Dry run yes/no?
 dry_run = args.dry
 
@@ -638,6 +668,7 @@ else:
 
 # TODO: check arguments for exceptions
 
+
 # ---------- Data gathering ----------
 qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
 
@@ -672,8 +703,8 @@ X_train, X_test, y_train, y_test = get_data(args.dataset,
 
 print("======================================================")
 
-# ---------- Logistic Regression benchmark ----------
 
+# ---------- Logistic Regression benchmark ----------
 # Run a logistic regression benchmark first so we can later see if our
 # ConvNet is somewhere in the ballpark.
 
@@ -702,8 +733,6 @@ if (args.logreg is True):
 
 # To find the optimal network structure, we will use the method proposed
 # in http://arxiv.org/pdf/1510.03820v4.pdf (Zhang, Wallace 2016)
-
-# First, start with a simple 1 layer CNN.
 if (verbose > 0):
     print("Optimizer permanently set to " + str(opt))
     print("Embedding dim permanently set to " + str(embedding_dim))
@@ -919,3 +948,7 @@ else:
 # print("------------------------------------------------------")
 
     print("======================================================")
+
+# Close logfile
+if (args.outfile is not None):
+    log1.__del__()
