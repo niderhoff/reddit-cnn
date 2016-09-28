@@ -92,6 +92,7 @@ The data are available at
 
 TODO:
 
+*   add option to cut the file-input using qry_lmt
 *   possibility to randomize selection from subreddits (as of now it will
     fill all data from first subreddit found if possible)
 *   implement non-random initialization for model
@@ -817,36 +818,6 @@ if (perm is True):
                                           val=True,
                                           opt=opt,
                                           verbose=verbose)
-                    if (cm is True):
-                        # Confusion Matrix code
-                        print_cm(nn, X_test, y_test)
-                print("------------------------------------------------------")
-    elif (model == "twolayer"):
-        s = [filter_widths, dropout_list, activation_list]
-        models = list(product(*s))
-        M = len(models)
-        print("Found " + str(M) + " possible models.")
-
-        if (query_yes_no("Do you wish to continue?")):
-            for m in models:
-                nn = cnn_twolayer(max_features=max_features, seqlen=seqlen,
-                                  embedding_dim=embedding_dim,
-                                  filter_size=m[0],
-                                  nb_filter=nb_filter,
-                                  dropout_p=m[1],
-                                  activation=m[2],
-                                  l2reg=l2reg,
-                                  l1reg=l1reg,
-                                  batchnorm=batchnorm,
-                                  summary=summary)
-                if (dry_run is False):
-                    cnn_train_twolayer(nn, X_train, y_train,
-                                       batch_size=batch_size,
-                                       nb_epoch=nb_epoch,
-                                       validation_data=(X_test, y_test),
-                                       val=True,
-                                       opt=opt,
-                                       verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
                         print_cm(nn, X_test, y_test)

@@ -65,6 +65,7 @@ def subreddits(subreddit_file="subreddits.txt"):
 def clean_comment(comment, replace_numbers=False):
     """
     Some simple regex substitution to clean the data.
+    URLs will be replaced with the token URLURL to flag external information.
     """
 
     urlsub = '[a-zA-Z]+?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|\
@@ -76,7 +77,7 @@ def clean_comment(comment, replace_numbers=False):
     }
     if (replace_numbers is True):
         subs["[0-9]"] = "XXXX"
-    r = re.sub(urlsub, ' ', comment).lower()
+    r = re.sub(urlsub, 'URLURL', comment).lower()
     for s in subs:
         r = re.sub(s, subs[s], r)
     r = re.sub('[^A-Za-z0-9\.\,]+', ' ', r).strip()
@@ -87,6 +88,10 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                  no_urls=False, no_deleted=False,
                  minlen=None, maxlen=None, scorerange=None, negrange=False,
                  balanced=False, verbose=1, tofile=None):
+    """
+    Fetch data from the default database and filter out unwanted posts.
+    Database is read in batches and resulting corpus is returned. (...)
+    """
     db = db_conn()
     c = db.cursor()
     query = "SELECT subreddit, body, score FROM May2015 WHERE"
@@ -122,12 +127,20 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
             body = row[1]
             score = row[2]
             check = True
+            # exception conditions come here. if not met, post is added
             if (no_deleted is True and body == "[deleted]"):
+                # remove posts that consist of [deleted], indicating a post
+                # that has been deleted on reddit
                 check = False
             if (no_urls is True):
-                print("do something")
+                # if a URL is found, remove the post in its entirety
+                regexp = re.compile("[a-zA-Z]+?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|\
+                [!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+                if regexp.search(body) is not None:
+                    check = False
+            # Clean the body from non-alphanumeric characters, replace certain
+            # tokens (urls, "tl;dr", etc.)
             body = clean_comment(body)
-            # exception conditions come here. if not met, post is added
             if (maxlen is not None and len(body.split()) > maxlen):
                 # check if number of words is within required range
                 check = False
