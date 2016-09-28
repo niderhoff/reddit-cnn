@@ -256,7 +256,7 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1,
              balanced=False, fromfile=None):
-    if (os.path.isfile(fromfile)):
+    if (fromfile is not None and os.path.isfile(fromfile)):
         f = np.load(fromfile)
         raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
                                               f['labels'], f['strata'])
