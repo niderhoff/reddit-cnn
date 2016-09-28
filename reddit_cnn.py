@@ -108,6 +108,7 @@ TODO:
 
 Known Bugs and Limitations:
 
+*   Lots of confusion with the scope and nn objects in the functions. rewrite!
 *   BATCH NORMALIZATION not working on CUDA v4. (this is an external issue that
     can not be fixed. however, one could think of implementing a check for the
     CUDA version.)
@@ -145,6 +146,7 @@ from keras.regularizers import l1, l2, l1l2
 from keras.datasets import imdb
 
 import preprocess as pre
+import vis
 
 
 # ---------- General purpose classes ----------
@@ -379,22 +381,22 @@ def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
         model.compile(loss='binary_crossentropy', optimizer=opt,
                       metrics=['accuracy'])
         if (verbose is 1):
-            model.fit(X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=validation_data,
-                      verbose=0)
+            return model.fit(X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=validation_data, verbose=0)
             print(model.evaluate(X_test, y_test, verbose=0))
         elif (verbose is 2):
-            model.fit(X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=validation_data,
-                      verbose=2)
+            return model.fit(X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=validation_data, verbose=2)
         elif (verbose is 3):
-            model.fit(X_train, y_train, batch_size=batch_size,
-                      nb_epoch=nb_epoch, validation_data=validation_data,
-                      verbose=1)
+            return model.fit(X_train, y_train, batch_size=batch_size,
+                             nb_epoch=nb_epoch,
+                             validation_data=validation_data, verbose=1)
     else:
         model.compile(loss='binary_crossentropy', optimizer=opt)
-        model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch)
-    return(model)
+        return model.fit(X_train, y_train, batch_size=batch_size,
+                         nb_epoch=nb_epoch)
 
 
 def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
@@ -450,23 +452,22 @@ def cnn_train_parallel(model, X_train, y_train, ngram_filters,
     model.compile(loss='binary_crossentropy', optimizer=opt,
                   metrics=['accuracy'])
     if (verbose is 1):
-        model.fit(concat_X_train, y_train, batch_size=batch_size,
-                  nb_epoch=nb_epoch,
-                  validation_data=(concat_X_test, y_test), verbose=0)
+        return model.fit(concat_X_train, y_train, batch_size=batch_size,
+                         nb_epoch=nb_epoch,
+                         validation_data=(concat_X_test, y_test), verbose=0)
         print(model.evaluate(concat_X_test, y_test, verbose=0))
     elif (verbose is 2):
-        model.fit(concat_X_train, y_train, batch_size=batch_size,
-                  nb_epoch=nb_epoch,
-                  validation_data=(concat_X_test, y_test), verbose=2)
+        return model.fit(concat_X_train, y_train, batch_size=batch_size,
+                         nb_epoch=nb_epoch,
+                         validation_data=(concat_X_test, y_test), verbose=2)
     elif (verbose is 3):
-        model.fit(concat_X_train, y_train, batch_size=batch_size,
-                  nb_epoch=nb_epoch,
-                  validation_data=(concat_X_test, y_test), verbose=1)
+        return model.fit(concat_X_train, y_train, batch_size=batch_size,
+                         nb_epoch=nb_epoch,
+                         validation_data=(concat_X_test, y_test), verbose=1)
     else:
         model.compile(loss='binary_crossentropy', optimizer=opt)
-        model.fit(concat_X_train, y_train, batch_size=batch_size,
-                  nb_epoch=nb_epoch)
-        return(model)
+        return model.fit(concat_X_train, y_train, batch_size=batch_size,
+                         nb_epoch=nb_epoch)
 
 
 # ---------- Diagnostics and Benchmarks ----------
@@ -597,6 +598,8 @@ parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
 parser.add_argument('--cm', default=False, action='store_true',
                     help='calculates confusion matrix (default: False)')
+parser.add_argument('--plot', default=False, action='store_true',
+                    help='plot the model metrics (default: False)')
 
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
@@ -635,6 +638,7 @@ perm = args.perm
 
 # Calculate confusion matrix?
 cm = args.cm
+do_plot = args.plot
 
 # Train/Test split size
 split = args.split
@@ -774,20 +778,22 @@ if (perm is True):
                                   batchnorm=batchnorm,
                                   summary=summary)
                 if (dry_run is False):
-                    cnn_train_parallel(nn, X_train, y_train,
-                                       ngram_filters=filter_widths,
-                                       validation_data=(X_test, y_test),
-                                       val=True,
-                                       batch_size=batch_size,
-                                       nb_epoch=nb_epoch,
-                                       opt=opt,
-                                       verbose=verbose)
+                    h = cnn_train_parallel(nn, X_train, y_train,
+                                           ngram_filters=filter_widths,
+                                           validation_data=(X_test, y_test),
+                                           val=True,
+                                           batch_size=batch_size,
+                                           nb_epoch=nb_epoch,
+                                           opt=opt,
+                                           verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
                         concat_X_test = []
                         for i in range(len(filter_widths)):
                             concat_X_test.append(X_test)
                         print_cm(nn, concat_X_test, y_test)
+                    if (do_plot is True):
+                        vis.plot_history(h)
                 print("------------------------------------------------------")
         else:
             print("Aborting.")
@@ -811,16 +817,18 @@ if (perm is True):
                                 batchnorm=batchnorm,
                                 summary=summary)
                 if (dry_run is False):
-                    nn = cnn_train_simple(nn, X_train, y_train,
-                                          batch_size=batch_size,
-                                          nb_epoch=nb_epoch,
-                                          validation_data=(X_test, y_test),
-                                          val=True,
-                                          opt=opt,
-                                          verbose=verbose)
+                    h = cnn_train_simple(nn, X_train, y_train,
+                                         batch_size=batch_size,
+                                         nb_epoch=nb_epoch,
+                                         validation_data=(X_test, y_test),
+                                         val=True,
+                                         opt=opt,
+                                         verbose=verbose)
                     if (cm is True):
                         # Confusion Matrix code
-                        print_cm(nn, X_test, y_test)
+                        print_cm(h, X_test, y_test)
+                    if (do_plot is True):
+                        vis.plot_history(h)
                 print("------------------------------------------------------")
     else:
         print("The model selected is not known to the program: " +
