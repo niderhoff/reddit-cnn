@@ -92,6 +92,8 @@ The data are available at
 
 TODO:
 
+*   add option so you draw the plots to file instead of displayed them
+*   also add option to have files named after models if you calculate multiple
 *   add option to cut the file-input using qry_lmt
 *   possibility to randomize selection from subreddits (as of now it will
     fill all data from first subreddit found if possible)
@@ -99,21 +101,15 @@ TODO:
 *   implement k-fold crossvalidation
 *   add docstrings to all functions
 *   update existing docstrings
-*   add option to display+print model plot
 *   add option to time benchmark
-*   outsource code for model plot, logreg, and time benchmarks
+*   outsource code for logreg, and time benchmarks
 *   catch commandline argument exceptions properly
-*   remove old default model code
-*   outsource model code to submodule
 
 Known Bugs and Limitations:
 
-*   Lots of confusion with the scope and nn objects in the functions. rewrite!
 *   BATCH NORMALIZATION not working on CUDA v4. (this is an external issue that
     can not be fixed. however, one could think of implementing a check for the
     CUDA version.)
-*   --perm switch is currently always true (since the legacy non-permutation
-    procedure that is currently implemented is obsolete).
 *   SGD optimizer cannot be called through command line (since keras expects
     an actual SGD() call and not a string.
 *   Newest iteration of database code is really slow.
@@ -131,46 +127,17 @@ import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import confusion_matrix
-# import matplotlib.pyplot as plt
 
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation, Flatten, Merge
-from keras.layers.normalization import BatchNormalization
-from keras.layers.embeddings import Embedding
-from keras.layers.convolutional import Convolution1D, MaxPooling1D
-from keras.optimizers import SGD
-from keras.regularizers import l1, l2, l1l2
-# from keras.utils.visualize_util import plot
+from keras.layers.core import Dense
+from keras.regularizers import l1l2
 from keras.datasets import imdb
 
 import preprocess as pre
 import vis
-
-
-# ---------- General purpose classes ----------
-class Tee(object):
-    """
-    This is a basically an inside-python rewrite of the unix program 'tee'.
-    Will output to stdout and to a file simultaneously if log class is called
-    until __del__() is called.
-
-    Doing this from within python will make this platform-agnostic (i.e. work
-    in windows, too, without installing a version of tee there manually.)
-    """
-    def __init__(self, name, mode):
-        self.file = open(name, mode)
-        self.stdout = sys.stdout
-        sys.stdout = self
-
-    def __del__(self):
-        sys.stdout = self.stdout
-        self.file.close()
-
-    def write(self, data):
-        self.file.write(data)
-        self.stdout.write(data)
+from models.cnn import CNN_Simple
 
 
 # ---------- General purpose functions ----------
@@ -335,141 +302,6 @@ def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
         print("max length: " + str(max([len(x.split()) for x in corpus])))
 
 
-# ---------- Model definitions ----------
-def cnn_simple(max_features, seqlen, embedding_dim, filter_size, nb_filter,
-               dropout_p, activation="relu", summary="full", l2reg=None,
-               l1reg=None, batchnorm=None, layers=1):
-    nn = Sequential()
-    nn.add(Embedding(input_dim=max_features, output_dim=embedding_dim,
-                     input_length=seqlen))
-    nn.add(Dropout(dropout_p))
-    nn.add(Convolution1D(
-        nb_filter,
-        filter_size,
-        activation=activation
-        ))
-    nn.add(MaxPooling1D(pool_length=seqlen - filter_size + 1))
-    nn.add(Flatten())
-    nn.add(Dropout(dropout_p))
-    if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
-            float):
-        nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
-    elif (l2reg is not None and l2reg is float):
-        nn.add(Dense(1), W_regularizer=l2(l2reg))
-    elif (l1reg is not None and l1reg is float):
-        nn.add(Dense(1), W_regularizer=l1(l1reg))
-    else:
-        nn.add(Dense(1))
-    if (batchnorm is True):
-        nn.add(BatchNormalization())
-    nn.add(Activation('sigmoid'))
-    if (summary == "full"):
-        print(nn.summary())
-    elif (summary == "short"):
-        summary = "MF " + str(max_features) + " | Len " + str(seqlen) + \
-                  " | Embed " + str(embedding_dim) + " | F " + \
-                  str(filter_size) + "x" + str(nb_filter) + " | Drop " + \
-                  str(dropout_p) + " | " + activation
-        print(summary)
-    return nn
-
-
-def cnn_train_simple(model, X_train, y_train, validation_data=None, val=False,
-                     batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
-    if (val is True and validation_data is not None):
-        X_test, y_test = validation_data
-        model.compile(loss='binary_crossentropy', optimizer=opt,
-                      metrics=['accuracy'])
-        if (verbose is 1):
-            return model.fit(X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=validation_data, verbose=0)
-            print(model.evaluate(X_test, y_test, verbose=0))
-        elif (verbose is 2):
-            return model.fit(X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=validation_data, verbose=2)
-        elif (verbose is 3):
-            return model.fit(X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=validation_data, verbose=1)
-    else:
-        model.compile(loss='binary_crossentropy', optimizer=opt)
-        return model.fit(X_train, y_train, batch_size=batch_size,
-                         nb_epoch=nb_epoch)
-
-
-def cnn_parallel(max_features, seqlen, embedding_dim, ngram_filters, nb_filter,
-                 dropout_p, activation="relu", summary="full", l2reg=None,
-                 l1reg=None, batchnorm=None):
-    conv_filters = []
-    for n_gram in ngram_filters:
-        sequential = Sequential()
-        conv_filters.append(sequential)
-        sequential.add(Embedding(input_dim=max_features,
-                                 output_dim=embedding_dim,
-                                 input_length=seqlen))
-        sequential.add(Dropout(dropout_p))
-        sequential.add(Convolution1D(nb_filter, n_gram, activation=activation))
-        sequential.add(MaxPooling1D(pool_length=seqlen - n_gram + 1))
-        sequential.add(Flatten())
-    nn = Sequential()
-    nn.add(Merge(conv_filters, mode='concat'))
-    nn.add(Dropout(dropout_p))
-    if (l1reg is not None and l1reg is float and l2reg is not None and l2reg is
-            float):
-        nn.add(Dense(1), W_regularizer=l1l2(l1reg, l2reg))
-    elif (l2reg is not None and l2reg is float):
-        nn.add(Dense(1), W_regularizer=l2(l2reg))
-    elif (l1reg is not None and l1reg is float):
-        nn.add(Dense(1), W_regularizer=l1(l1reg))
-    else:
-        nn.add(Dense(1))
-    if (batchnorm is True):
-        nn.add(BatchNormalization())
-    nn.add(Activation("sigmoid"))
-    if (summary == "full"):
-        print(nn.summary())
-    elif (summary == "short"):
-        summary = "MF " + str(max_features) + " | Len " + str(seqlen) + \
-                  " | Embed " + str(embedding_dim) + " | F " + \
-                  str(ngram_filters) + "x" + str(nb_filter) + " | Drop " + \
-                  str(dropout_p) + " | " + activation
-        print(summary)
-    return nn
-
-
-def cnn_train_parallel(model, X_train, y_train, ngram_filters,
-                       validation_data=None, val=False,
-                       batch_size=32, nb_epoch=5, opt=SGD(), verbose=1):
-    X_test, y_test = validation_data
-    concat_X_test = []
-    concat_X_train = []
-    for i in range(len(ngram_filters)):
-        concat_X_test.append(X_test)
-        concat_X_train.append(X_train)
-
-    model.compile(loss='binary_crossentropy', optimizer=opt,
-                  metrics=['accuracy'])
-    if (verbose is 1):
-        return model.fit(concat_X_train, y_train, batch_size=batch_size,
-                         nb_epoch=nb_epoch,
-                         validation_data=(concat_X_test, y_test), verbose=0)
-        print(model.evaluate(concat_X_test, y_test, verbose=0))
-    elif (verbose is 2):
-        return model.fit(concat_X_train, y_train, batch_size=batch_size,
-                         nb_epoch=nb_epoch,
-                         validation_data=(concat_X_test, y_test), verbose=2)
-    elif (verbose is 3):
-        return model.fit(concat_X_train, y_train, batch_size=batch_size,
-                         nb_epoch=nb_epoch,
-                         validation_data=(concat_X_test, y_test), verbose=1)
-    else:
-        model.compile(loss='binary_crossentropy', optimizer=opt)
-        return model.fit(concat_X_train, y_train, batch_size=batch_size,
-                         nb_epoch=nb_epoch)
-
-
 # ---------- Diagnostics and Benchmarks ----------
 def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
              nb_epoch=10, reg=l1l2(l1=0.01, l2=0.01), verbose=1):
@@ -589,9 +421,9 @@ parser.add_argument('--model', default="simple",
 
 # Switches
 # For now this switch is always true.
-parser.add_argument('--perm', default=True, action='store_true',
-                    help='calculate all possible model Permutations \
-                    (default: True)')
+# parser.add_argument('--perm', default=True, action='store_true',
+#                     help='calculate all possible model Permutations \
+#                     (default: True)')
 parser.add_argument('--logreg', action='store_true',
                     help='calculate logreg benchmark? (default: False)')
 parser.add_argument('--dry', default=False, action='store_true',
@@ -615,7 +447,7 @@ args = parser.parse_args()
 # ---------- Logging ----------
 # Initialize logfile if required
 if (args.outfile is not None):
-    log1 = Tee(args.outfile, 'w')
+    log1 = vis.Tee(args.outfile, 'w')
 
 # Verbosity levels
 # 0: nothing
@@ -634,7 +466,7 @@ if (verbose > 0):
 dry_run = args.dry
 
 # Calculates all possible permutations from the model options selected
-perm = args.perm
+# perm = args.perm
 
 # Calculate confusion matrix?
 cm = args.cm
@@ -734,199 +566,56 @@ if (args.logreg is True):
         print("------------------------------------------------------")
     print("======================================================")
 
-# ---------- Convolutional Neural Network ----------
 
-# To find the optimal network structure, we will use the method proposed
-# in http://arxiv.org/pdf/1510.03820v4.pdf (Zhang, Wallace 2016)
+# ---------- Convolutional Neural Network ----------
 if (verbose > 0):
     print("Optimizer permanently set to " + str(opt))
     print("Embedding dim permanently set to " + str(embedding_dim))
     print("Number of filters set to " + str(nb_filter))
     print("Batch size set to " + str(batch_size))
     print("Number of epochs set to " + str(nb_epoch))
-    if (verbose == 3):
-        summary = "full"
-    else:
-        summary = "short"
+
+# Hieran arbeiten wir heute!
+
+if (len(filter_widths) > 1 or len(dropout_list) > 1 or
+        len(activation_list) > 1):
+    s = [filter_widths, dropout_list, activation_list]
+    models = list(product(*s))
 else:
-    summary = "none"
+    models = [(filter_widths[0], dropout_p, activation)]
 
-
-if (perm is True):
-    if (verbose > 0):
-        print("Selected filter sizes " + str(filter_widths))
-        print("Selected Dropout rates " + str(dropout_list))
-        print("Selected Activation functions " + str(activation_list))
-        print("Calculating all possible model permutations")
-    if (model == "parallel" and len(filter_widths) > 1):
-        if (verbose > 0):
-            print("Selected parallel filters.")
-        s = [dropout_list, activation_list]
-        models = list(product(*s))
-        M = len(models)
-        print("Found " + str(M) + " possible models.")
-        if (query_yes_no("Do you wish to continue?")):
-            for m in models:
-                nn = cnn_parallel(max_features=max_features, seqlen=seqlen,
-                                  embedding_dim=embedding_dim,
-                                  ngram_filters=filter_widths,
-                                  nb_filter=nb_filter,
-                                  dropout_p=m[0],
-                                  activation=m[1],
-                                  l2reg=l2reg,
-                                  l1reg=l1reg,
-                                  batchnorm=batchnorm,
-                                  summary=summary)
-                if (dry_run is False):
-                    h = cnn_train_parallel(nn, X_train, y_train,
-                                           ngram_filters=filter_widths,
-                                           validation_data=(X_test, y_test),
-                                           val=True,
-                                           batch_size=batch_size,
-                                           nb_epoch=nb_epoch,
-                                           opt=opt,
-                                           verbose=verbose)
-                    if (cm is True):
-                        # Confusion Matrix code
-                        concat_X_test = []
-                        for i in range(len(filter_widths)):
-                            concat_X_test.append(X_test)
-                        print_cm(nn, concat_X_test, y_test)
-                    if (do_plot is True):
-                        vis.plot_history(h)
-                print("------------------------------------------------------")
-        else:
-            print("Aborting.")
-            print("======================================================")
-    elif (model == "simple"):
-        s = [filter_widths, dropout_list, activation_list]
-        models = list(product(*s))
-        M = len(models)
-        print("Found " + str(M) + " possible models.")
-
-        if (query_yes_no("Do you wish to continue?")):
-            for m in models:
-                nn = cnn_simple(max_features=max_features, seqlen=seqlen,
-                                embedding_dim=embedding_dim,
-                                filter_size=m[0],
-                                nb_filter=nb_filter,
-                                dropout_p=m[1],
-                                activation=m[2],
-                                l2reg=l2reg,
-                                l1reg=l1reg,
-                                batchnorm=batchnorm,
-                                summary=summary)
-                if (dry_run is False):
-                    h = cnn_train_simple(nn, X_train, y_train,
-                                         batch_size=batch_size,
-                                         nb_epoch=nb_epoch,
-                                         validation_data=(X_test, y_test),
-                                         val=True,
-                                         opt=opt,
-                                         verbose=verbose)
-                    if (cm is True):
-                        # Confusion Matrix code
-                        print_cm(h, X_test, y_test)
-                    if (do_plot is True):
-                        vis.plot_history(h)
-                print("------------------------------------------------------")
-    else:
-        print("The model selected is not known to the program: " +
-              str(model) + ". Aborting.")
-        print("Or didn't give sufficient parameters for the model. (Filters?)")
-        print("======================================================")
-else:
-    if (verbose > 0):
-        print('You chose not to calculate all model permutations. ' +
-              'Running default routine.')
-        print("Selected filter sizes " + str(filter_widths))
-        print("Selected Dropout rates " + str(dropout_list))
-        print("Selected Activation functions " + str(activation_list))
-
-# We will run the ConvNet with different filter sizes to determine the
-# optimal filter width first
-    for fs in filter_widths:
-        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
-                        filter_size=fs, nb_filter=nb_filter,
-                        dropout_p=dropout_p, summary=summary)
+print("Found " + str(len(models)) + " possible models.")
+if (query_yes_no("Do you wish to continue?")):
+    for m in models:
+        model = CNN_Simple(max_features=max_features,
+                           embedding_dim=embedding_dim,
+                           seqlen=seqlen,
+                           nb_filter=nb_filter,
+                           filter_size=m[0],
+                           activation=m[2],
+                           dropout_p=m[1],
+                           l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                           verbosity=verbose)
+        print(model.summary())
         if (dry_run is False):
-            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=(X_test, y_test), val=True,
-                             opt=opt, verbose=verbose)
+            model.train(X_train, y_train, X_test, y_test, val=True,
+                        opt=opt, nb_epoch=nb_epoch)
+            if (cm is True):
+                print_cm(model.nn, X_test, y_test)
+            if (do_plot is True):
+                # We need to change the filenames so this will not be
+                # all overwritten..
+                vis.plot_nn_graph(model.nn, to_file="model.png")
+                vis.plot_history(model.fitted)
+                vis.print_history(model.fitted, to_file="history.txt")
         print("------------------------------------------------------")
 
-# After this, we can try the effects of different activation functions.
-# Recommended are for most data: Id(x), ReLU, or tanh. Id(x) mostly only
-# works if you have one layer and we intent to increase that later so we should
-# probably go with tanh or ReLU.
-#
-    for act in activation_list:
-        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
-                        filter_size=filter_size, nb_filter=nb_filter,
-                        dropout_p=dropout_p, summary=summary, activation=act)
-        if (dry_run is False):
-            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=(X_test, y_test), val=True,
-                             opt=opt, verbose=verbose)
-        print("------------------------------------------------------")
+# now we just need a fork/switches for the different models called upon
+# by command line and executing the needed plots/prints/fileoutputs
+# might as well incude keras functionability to save the compiled and fitted
+# model object to disk.
 
-# Also we can switch around with the dropout rate between (0.0, 0.5), but the
-# impact this has will be very limited. Same goes for l2-regularization. We can
-# add that into the model with a large constraint value. If we intent to
-# increase the size of the feature map beond 600, we can add dropout > 0.5.
-# However, all of this is pretty unnecessary if we only have 1 hidden layer.
-#
-    for p in dropout_list:
-        nn = cnn_simple(max_features, seqlen, embedding_dim=embedding_dim,
-                        filter_size=filter_size, nb_filter=nb_filter,
-                        dropout_p=p, summary=summary, activation=activation)
-        if (dry_run is False):
-            cnn_train_simple(nn, X_train, y_train, batch_size=batch_size,
-                             nb_epoch=nb_epoch,
-                             validation_data=(X_test, y_test), val=True,
-                             opt=opt, verbose=verbose)
-        print("------------------------------------------------------")
-
-# After we decide for an appropriate filter size, we can try out using the
-# same filter multiples times or several different size filters close to the
-# optimal filter size.
-
-# filter_size = 3
-# print("Filter size permanently set to " + str(filter_size))
-
-# However, I still have to find out how to code in multiple filter sizes in
-# one model in keras.
-
-# Now we can try out various feature map sizes, recommend is something between
-# [100, 600]. If the optimal is close to the border, one should try going
-# beyond that.
-#
-# for seqlen in range(100, 650, 50):
-#    ...
-
-# 1-max-pooling is usually the best, but we can also try out k-max [5,10,15,20]
-# ---> Stil have to figure out how to do k-max in keras.
-
-# After this we can fiddle around with the algorithm and learning rate. SGD
-# works well with ReLU. Other options: Adadelta, Adam.
-#
-# opt=SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False)
-# opt=Adadelta(lr=1.0)
-# opt=Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-# ...
-
-# opt = SGD(lr=0.1)
-# print("Optimizer set to " + str(opt))
-# nn = cnn_build(max_features, seqlen, embedding_dim=100,
-#                filter_size=filter_size, nb_filter=nb_filter,
-#                dropout_p=dropout_p, summary="short", activation=activation)
-# cnn_train(nn, X_train, y_train, batch_size=batch_size, nb_epoch=5,
-#           validation_data=(X_test, y_test), val=True, opt=opt, verbose=1)
-# print("------------------------------------------------------")
-
-    print("======================================================")
+print("======================================================")
 
 # Close logfile
 if (args.outfile is not None):
