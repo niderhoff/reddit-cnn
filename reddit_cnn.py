@@ -436,7 +436,7 @@ parser.add_argument('--plot', default=False, action='store_true',
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
-parser.add_argument('-f', '--outfile', default=None,
+parser.add_argument('-f', '--outfile', default='last',
                     help='file to output results to (default: None)')
 parser.add_argument('--fromfile', default=None,
                     help="file input (default: None)")
@@ -605,9 +605,10 @@ if (query_yes_no("Do you wish to continue?")):
             if (do_plot is True):
                 # We need to change the filenames so this will not be
                 # all overwritten..
-                vis.plot_nn_graph(model.nn, to_file="model.png")
-                vis.plot_history(model.fitted, to_file="history.png")
-                vis.print_history(model.fitted, to_file="history.txt")
+                o = str(args.outfile)
+                vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
+                vis.plot_history(model.fitted, to_file=o + "-history.png")
+                vis.print_history(model.fitted, to_file=o + "-history.txt")
         print("------------------------------------------------------")
 
 # now we just need a fork/switches for the different models called upon
