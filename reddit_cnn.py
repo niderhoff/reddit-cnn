@@ -111,7 +111,7 @@ Known Bugs and Limitations:
     can not be fixed. however, one could think of implementing a check for the
     CUDA version.)
 *   SGD optimizer cannot be called through command line (since keras expects
-    an actual SGD() call and not a string.
+    an actual SGD() call and not a string
 *   Newest iteration of database code is really slow.
 *   Some documentation is false or misleading.
 *   The current implementation of the CNN-model might not be the best.
@@ -606,7 +606,7 @@ if (query_yes_no("Do you wish to continue?")):
                 # We need to change the filenames so this will not be
                 # all overwritten..
                 vis.plot_nn_graph(model.nn, to_file="model.png")
-                vis.plot_history(model.fitted)
+                vis.plot_history(model.fitted, to_file="history.png")
                 vis.print_history(model.fitted, to_file="history.txt")
         print("------------------------------------------------------")
 
