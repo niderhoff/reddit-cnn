@@ -137,7 +137,7 @@ from keras.datasets import imdb
 
 import preprocess as pre
 import vis
-from models.cnn import CNN_Simple
+from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_Parallel
 
 
 # ---------- General purpose functions ----------
@@ -475,9 +475,6 @@ do_plot = args.plot
 # Train/Test split size
 split = args.split
 
-# Model selection
-model = args.model
-
 # Hyperparameter constants
 nb_filter = args.nb_filter
 batch_size = args.batch_size
@@ -579,23 +576,50 @@ if (verbose > 0):
 
 if (len(filter_widths) > 1 or len(dropout_list) > 1 or
         len(activation_list) > 1):
-    s = [filter_widths, dropout_list, activation_list]
-    models = list(product(*s))
+    if (args.model == "parallel"):
+        s = [dropout_list, activation_list]
+        models = list(product(*s))
+    else:
+        s = [filter_widths, dropout_list, activation_list]
+        models = list(product(*s))
 else:
     models = [(filter_widths[0], dropout_p, activation)]
 
 print("Found " + str(len(models)) + " possible models.")
 if (query_yes_no("Do you wish to continue?")):
     for m in models:
-        model = CNN_Simple(max_features=max_features,
-                           embedding_dim=embedding_dim,
-                           seqlen=seqlen,
-                           nb_filter=nb_filter,
-                           filter_size=m[0],
-                           activation=m[2],
-                           dropout_p=m[1],
-                           l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
-                           verbosity=verbose)
+        if (args.model == "simple"):
+            model = CNN_Simple(max_features=max_features,
+                               embedding_dim=embedding_dim,
+                               seqlen=seqlen,
+                               nb_filter=nb_filter,
+                               filter_size=m[0],
+                               activation=m[2],
+                               dropout_p=m[1],
+                               l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                               verbosity=verbose)
+        elif (args.model == "twolayer"):
+            model = CNN_TwoLayer(max_features=max_features,
+                                 embedding_dim=embedding_dim,
+                                 seqlen=seqlen,
+                                 nb_filter=nb_filter,
+                                 filter_size=m[0],
+                                 activation=m[2],
+                                 dropout_p=m[1],
+                                 l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                                 verbosity=verbose)
+        elif (args.model == "parallel"):
+            model = CNN_Parallel(max_features=max_features,
+                                 embedding_dim=embedding_dim,
+                                 seqlen=seqlen,
+                                 nb_filter=nb_filter,
+                                 filter_widths=filter_widths,
+                                 activation=m[1],
+                                 dropout_p=m[0],
+                                 l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                                 verbosity=verbose)
+        else:
+            print("No valid model: " + str(args.model))
         print(model.summary())
         if (dry_run is False):
             model.train(X_train, y_train, X_test, y_test, val=True,

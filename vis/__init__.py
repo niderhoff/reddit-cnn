@@ -2,6 +2,7 @@ import sys
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from keras.utils.visualize_util import plot
+import numpy as np
 
 
 class Tee(object):
@@ -31,6 +32,7 @@ class Tee(object):
 
 
 def plot_history(history, to_file):
+    # TODO: make plots not overlap.
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     ax1.plot(history.history['acc'])
@@ -52,6 +54,7 @@ def plot_history(history, to_file):
 
 
 def print_history(history, to_file):
+    np.set_printoptions(threshold=np.inf)
     log1 = Tee(to_file, 'a')
     print(Table(history.history))
     log1.__del__()
