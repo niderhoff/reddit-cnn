@@ -436,7 +436,7 @@ parser.add_argument('--plot', default=False, action='store_true',
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
-parser.add_argument('-f', '--outfile', default='last',
+parser.add_argument('-f', '--outfile', default=None,
                     help='file to output results to (default: None)')
 parser.add_argument('--fromfile', default=None,
                     help="file input (default: None)")

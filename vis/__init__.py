@@ -26,6 +26,9 @@ class Tee(object):
         self.file.write(data)
         self.stdout.write(data)
 
+    def flush(self):
+        pass
+
 
 def plot_history(history, to_file):
     fig = plt.figure()
