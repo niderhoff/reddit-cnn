@@ -137,7 +137,8 @@ from keras.datasets import imdb
 
 import preprocess as pre
 import vis
-from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_Parallel
+from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_TwoLayer2, CNN_Parallel
+from models.cnn import CNN_ThreeLayer
 
 
 # ---------- General purpose functions ----------
