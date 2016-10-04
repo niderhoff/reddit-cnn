@@ -235,7 +235,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         X = get_sequences(corpus, max_features, seqlen)
         y = get_labels_binary(labels, 1)
 
-        np.random.seed(1234)
+        if (args.noseed is not True):
+            np.random.seed(1234)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                             test_size=split)
@@ -252,7 +253,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         X = get_sequences(corpus, max_features, seqlen)
         y = get_labels_binary(labels, 1)
 
-        np.random.seed(1234)
+        if (args.noseed is not True):
+            np.random.seed(1234)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                             test_size=split)
@@ -358,6 +360,7 @@ parser.add_argument('--dataset', default='reddit',
                     help='dataset to be used (default: \'reddit\')')
 parser.add_argument('--subreddits', default=None, nargs='*',
                     help='list of subreddits (default: None)')
+parser.add_argument('--noseed', default=False, action='store_true')
 
 # Post fetching
 parser.add_argument('-q', '--qry_lmt', default=10000, type=int,
