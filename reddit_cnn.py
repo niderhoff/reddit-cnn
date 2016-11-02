@@ -44,7 +44,6 @@ Usage:
 Args:
 
     -h, --help            show help message and exit
-    --dataset DATASET     dataset to be used (default: 'reddit')
     -q QRY_LMT, --qry_lmt QRY_LMT
                           amount of data to query (default: 10000)
     --max_features MAX_FEATURES
@@ -128,12 +127,9 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import confusion_matrix
 
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing import sequence
 from keras.models import Sequential
 from keras.layers.core import Dense
 from keras.regularizers import l1l2
-from keras.datasets import imdb
 
 import preprocess as pre
 import vis
@@ -178,52 +174,6 @@ def query_yes_no(question, default="yes"):
 
 
 # ---------- Data prep ----------
-def get_sequences(corpus, max_features=5000, seqlen=100):
-    """
-    Will convert the corpus to a word index and pad the resulting
-    sequences to the maximum length if they fall short.
-
-    Args:
-        corpus: the corpus of comments
-        max_features: number of words in the word index. words that are used
-                      less frequently will be replaced by zeroes. (?)
-        maxlen: maximum length of comments. longer ones will be truncated,
-                shorter ones will be padded with zeroes on the left hand side.
-
-    Returns:
-        data matrix X
-    """
-    tokenized = Tokenizer(nb_words=max_features)
-    tokenized.fit_on_texts(corpus)
-    seq = tokenized.texts_to_sequences(corpus)
-    X = sequence.pad_sequences(seq, seqlen)
-    return X
-
-
-def get_labels_binary(labels, threshold=1):
-    """
-    Will turn the labels (reddit comment karma) into binary classes depending
-    on a given threshold.
-
-    Args:
-        labels: the list of karma scores
-        threshold: value at wich to split the scores into classes
-
-    Returns:
-        np.array with binary classes
-    """
-    Y = np.asarray(labels)
-    Ybool = Y > threshold
-    Ybin = Ybool.astype(int)
-    if (verbose > 0):
-        print('Y.shape: ' + str(Y.shape))
-        if (verbose == 3):
-            print('Y: ' + str(Y))
-            print("Y > 1: " + str(Ybool))
-            print("Y binary: " + str(Ybin))
-    return np.expand_dims(Ybin, axis=1)
-
-
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1,
@@ -232,8 +182,8 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
         f = np.load(fromfile)
         raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
                                               f['labels'], f['strata'])
-        X = get_sequences(corpus, max_features, seqlen)
-        y = get_labels_binary(labels, 1)
+        X = pre.get_sequences(corpus, max_features, seqlen)
+        y = pre.get_labels_binary(labels, 1)
 
         if (args.noseed is not True):
             np.random.seed(1234)
@@ -245,13 +195,13 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
             print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
             print('padded example: ' + str(X[1]))
         return (X_train, X_test, y_train, y_test)
-    elif (dataset.lower() == "reddit"):
+    else:
         raw_corpus, corpus, labels, strata = pre.build_corpus(
             subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
             scorerange=scorerange, negrange=negrange,
             batch_size=qry_lmt/10, verbose=verbose, balanced=balanced)
-        X = get_sequences(corpus, max_features, seqlen)
-        y = get_labels_binary(labels, 1)
+        X = pre.get_sequences(corpus, max_features, seqlen)
+        y = pre.get_labels_binary(labels, 1)
 
         if (args.noseed is not True):
             np.random.seed(1234)
@@ -268,19 +218,6 @@ def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
             print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
             print('padded example: ' + str(X[1]))
         return (X_train, X_test, y_train, y_test)
-    elif (dataset.lower() == "imdb"):
-        (X_train, y_train), (X_test, y_test) = imdb.load_data(
-                                                    nb_words=max_features)
-        X_train = sequence.pad_sequences(X_train, maxlen=seqlen)
-        X_test = sequence.pad_sequences(X_test, maxlen=seqlen)
-        if (verbose > 1):
-            print('Using imdb dataset.')
-            if (verbose > 2):
-                print("X_train :" + str(X_train))
-            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
-        return (X_train, X_test, y_train, y_test)
-    else:
-        print(dataset + " is not a valid dataset.")
 
 
 def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
@@ -355,9 +292,6 @@ def print_cm(nn, X_test, y_test, batch_size=32):
 parser = argparse.ArgumentParser(
     description='Reddit CNN - binary classification on reddit comment scores.')
 
-# 'imdb' or 'reddit' dataset?
-parser.add_argument('--dataset', default='reddit',
-                    help='dataset to be used (default: \'reddit\')')
 parser.add_argument('--subreddits', default=None, nargs='*',
                     help='list of subreddits (default: None)')
 parser.add_argument('--noseed', default=False, action='store_true')
@@ -638,12 +572,6 @@ if (query_yes_no("Do you wish to continue?")):
                 vis.plot_history(model.fitted, to_file=o + "-history.png")
                 vis.print_history(model.fitted, to_file=o + "-history.txt")
         print("------------------------------------------------------")
-
-# now we just need a fork/switches for the different models called upon
-# by command line and executing the needed plots/prints/fileoutputs
-# might as well incude keras functionability to save the compiled and fitted
-# model object to disk.
-
 print("======================================================")
 
 # Close logfile

@@ -18,6 +18,8 @@ TODO:
 import sqlite3
 import re
 import numpy as np
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing import sequence
 
 
 def db_conn(database="database.sqlite"):
@@ -183,3 +185,49 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                  strata=strata)
         print("Saved corpus data to " + tofile)
     return(raw_corpus, corpus, labels, strata)
+
+
+def get_sequences(corpus, max_features=5000, seqlen=100):
+    """
+    Will convert the corpus to a word index and pad the resulting
+    sequences to the maximum length if they fall short.
+
+    Args:
+        corpus: the corpus of comments
+        max_features: number of words in the word index. words that are used
+                      less frequently will be replaced by zeroes. (?)
+        maxlen: maximum length of comments. longer ones will be truncated,
+                shorter ones will be padded with zeroes on the left hand side.
+
+    Returns:
+        data matrix X
+    """
+    tokenized = Tokenizer(nb_words=max_features)
+    tokenized.fit_on_texts(corpus)
+    seq = tokenized.texts_to_sequences(corpus)
+    X = sequence.pad_sequences(seq, seqlen)
+    return X
+
+
+def get_labels_binary(labels, verbose=2, threshold=1):
+    """
+    Will turn the labels (reddit comment karma) into binary classes depending
+    on a given threshold.
+
+    Args:
+        labels: the list of karma scores
+        threshold: value at wich to split the scores into classes
+
+    Returns:
+        np.array with binary classes
+    """
+    Y = np.asarray(labels)
+    Ybool = Y > threshold
+    Ybin = Ybool.astype(int)
+    if (verbose > 0):
+        print('Y.shape: ' + str(Y.shape))
+        if (verbose == 3):
+            print('Y: ' + str(Y))
+            print("Y > 1: " + str(Ybool))
+            print("Y binary: " + str(Ybin))
+    return np.expand_dims(Ybin, axis=1)
