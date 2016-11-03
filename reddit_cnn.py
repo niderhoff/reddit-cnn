@@ -124,7 +124,7 @@ from itertools import product
 
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import KFold, train_test_split
 
 from keras.models import Sequential
 from keras.layers.core import Dense
@@ -186,52 +186,6 @@ def build_data_matrix(corpus, labels, max_features, seqlen,
         print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
         print('padded example: ' + str(X[1]))
     return (X_train, X_test, y_train, y_test)
-
-
-def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
-             max_features=5000, minlen=5, maxlen=100, seqlen=100,
-             scorerange=None, negrange=False, split=0.2, verbose=1,
-             balanced=False, fromfile=None):
-    if (fromfile is not None and os.path.isfile(fromfile)):
-        f = np.load(fromfile)
-        raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
-                                              f['labels'], f['strata'])
-        X = pre.get_sequences(corpus, max_features, seqlen)
-        y = pre.get_labels_binary(labels, 1)
-
-        if (args.noseed is not True):
-            np.random.seed(1234)
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=split)
-        if (verbose > 1):
-            print('Using dataset from file: ' + str(fromfile))
-            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
-            print('padded example: ' + str(X[1]))
-        return (X_train, X_test, y_train, y_test)
-    else:
-        raw_corpus, corpus, labels, strata = pre.build_corpus(
-            subreddit_list, qry_lmt, minlen=minlen, maxlen=maxlen,
-            scorerange=scorerange, negrange=negrange,
-            batch_size=qry_lmt/10, verbose=verbose, balanced=balanced)
-        X = pre.get_sequences(corpus, max_features, seqlen)
-        y = pre.get_labels_binary(labels, 1)
-
-        if (args.noseed is not True):
-            np.random.seed(1234)
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            test_size=split)
-
-        # To test if crossvalidation works correctly, we can substitute random
-        # validation data
-        #
-        # y_test = np.random.binomial(1, 0.66, 200)
-        if (verbose > 1):
-            print('Using reddit dataset.')
-            print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
-            print('padded example: ' + str(X[1]))
-        return (X_train, X_test, y_train, y_test)
 
 
 def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
@@ -305,6 +259,7 @@ parser.add_argument('--max_features', default=5000, type=int,
 parser.add_argument('--seqlen', default=100, type=int,
                     help='length to which sequences will be padded \
                     (default: 100)')
+parser.add_argument('--threshold', default=1, type=int)
 parser.add_argument('--maxlen', default=100, type=int,
                     help='maximum comment length (default: 100)')
 parser.add_argument('--minlen', default=0, type=int,
@@ -371,6 +326,8 @@ parser.add_argument('--cm', default=False, action='store_true',
                     help='calculates confusion matrix (default: False)')
 parser.add_argument('--plot', default=False, action='store_true',
                     help='plot the model metrics (default: False)')
+parser.add_argument('--kfold', default=0, type=int,
+                    help='how many times to perform cross validation (def: 0)')
 
 # Other arguments
 parser.add_argument('-v', '--verbose', default=2, type=int,
@@ -462,7 +419,7 @@ if (args.fromfile is not None and os.path.isfile(args.fromfile)):
         print('Using dataset from file: ' + str(args.fromfile))
 else:
     raw_corpus, corpus, labels, strata = pre.build_corpus(
-        args.subreddit_list,
+        args.subreddits,
         args.qry_lmt,
         minlen=args.minlen,
         maxlen=args.maxlen,
@@ -474,8 +431,25 @@ else:
     if (verbose > 1):
         print('Using reddit dataset')
 
-X_train, X_test, y_train, y_test = build_data_matrix(
-    corpus, labels, args.max_features, args.seqlen, args.split)
+X = pre.get_sequences(corpus, args.max_features, args.seqlen)
+y = pre.get_labels_binary(labels, args.threshold)
+
+if (args.noseed is not True):
+        np.random.seed(1234)
+
+# Validation/Crossvalidation
+if (args.kfold > 0):
+    # k-fold Cross validation
+    kf = KFold(n_splits=args.kfold)
+    folds = [[train, test] for train, test in kf.split(X)]
+else:
+    # Normal train/test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        test_size=args.split)
+    # /.../
+    if (verbose > 1):
+        print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
+        print('padded example: ' + str(X[1]))
 
 print("======================================================")
 
@@ -487,7 +461,7 @@ print("======================================================")
 if (args.logreg is True):
     if (verbose > 0):
         print("Running logistic regression benchmarks.")
-    if (args.dry_run is False):
+    if (args.dry is False):
         # Scikit-learn logreg.
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only
@@ -509,10 +483,10 @@ if (args.logreg is True):
 # ---------- Convolutional Neural Network ----------
 if (verbose > 0):
     print("Optimizer permanently set to " + str(args.opt))
-    print("Embedding dim permanently set to " + str(args.embedding_dim))
+    print("Embedding dim permanently set to " + str(args.embed))
     print("Number of filters set to " + str(args.nb_filter))
     print("Batch size set to " + str(args.batch_size))
-    print("Number of epochs set to " + str(args.nb_epoch))
+    print("Number of epochs set to " + str(args.epochs))
 
 # Hieran arbeiten wir heute!
 
@@ -532,7 +506,7 @@ if (query_yes_no("Do you wish to continue?")):
     for m in models:
         if (args.model == "simple"):
             model = CNN_Simple(max_features=args.max_features,
-                               embedding_dim=args.embedding_dim,
+                               embedding_dim=args.embed,
                                seqlen=args.seqlen,
                                nb_filter=args.nb_filter,
                                filter_size=m[0],
@@ -543,7 +517,7 @@ if (query_yes_no("Do you wish to continue?")):
                                verbosity=verbose)
         elif (args.model == "twolayer"):
             model = CNN_TwoLayer(max_features=args.max_features,
-                                 embedding_dim=args.embedding_dim,
+                                 embedding_dim=args.embed,
                                  seqlen=args.seqlen,
                                  nb_filter=args.nb_filter,
                                  filter_size=m[0],
@@ -554,7 +528,7 @@ if (query_yes_no("Do you wish to continue?")):
                                  verbosity=verbose)
         elif (args.model == "parallel"):
             model = CNN_Parallel(max_features=args.max_features,
-                                 embedding_dim=args.embedding_dim,
+                                 embedding_dim=args.embed,
                                  seqlen=args.seqlen,
                                  nb_filter=args.nb_filter,
                                  filter_widths=args.filter_widths,
@@ -566,18 +540,31 @@ if (query_yes_no("Do you wish to continue?")):
         else:
             print("No valid model: " + str(args.model))
         print(model.summary())
-        if (args.dry_run is False):
-            model.train(X_train, y_train, X_test, y_test, val=True,
-                        opt=args.opt, nb_epoch=args.nb_epoch)
-            if (args.cm is True):
-                vis.print_cm(model.nn, X_test, y_test)
-            if (args.do_plot is True):
-                # We need to change the filenames so this will not be
-                # all overwritten..
-                o = str(args.outfile)
-                vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
-                vis.plot_history(model.fitted, to_file=o + "-history.png")
-                vis.print_history(model.fitted, to_file=o + "-history.txt")
+        if (args.dry is False):
+            if (args.kfold > 0):
+                print("selected " + str(args.kfold) + "-fold (cross-)val")
+                metrics = {'val': [], 'loss': []}
+                for k in range(len(folds)):
+                    X_train, X_test = X[folds[k][0]], X[folds[k][1]]
+                    y_train, y_test = y[folds[k][0]], y[folds[k][1]]
+                    model.train(X_train, y_train, X_test, y_test, val=True,
+                                opt=args.opt, nb_epoch=args.epochs)
+                    metrics['loss'].append(model.nn.evaluate(X_test, y_test)[0])
+                    metrics['val'].append(model.nn.evaluate(X_test, y_test)[1])
+                print("val-acc: " + str(metrics))
+                print("avg. val" + str(float(sum(metrics['val']))/len(metrics['val'])))
+            else:
+                model.train(X_train, y_train, X_test, y_test, val=True,
+                            opt=args.opt, nb_epoch=args.epochs)
+                if (args.cm is True):
+                    vis.print_cm(model.nn, X_test, y_test)
+                if (args.plot is True):
+                    # We need to change the filenames so this will not be
+                    # all overwritten..
+                    o = str(args.outfile)
+                    vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
+                    vis.plot_history(model.fitted, to_file=o + "-history.png")
+                    vis.print_history(model.fitted, to_file=o + "-history.txt")
         print("------------------------------------------------------")
 print("======================================================")
 
