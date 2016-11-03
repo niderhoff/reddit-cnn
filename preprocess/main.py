@@ -209,7 +209,7 @@ def get_sequences(corpus, max_features=5000, seqlen=100):
     return X
 
 
-def get_labels_binary(labels, verbose=2, threshold=1):
+def get_labels_binary(labels, threshold=1, verbose=2):
     """
     Will turn the labels (reddit comment karma) into binary classes depending
     on a given threshold.

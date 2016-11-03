@@ -125,7 +125,6 @@ from itertools import product
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import confusion_matrix
 
 from keras.models import Sequential
 from keras.layers.core import Dense
@@ -174,6 +173,21 @@ def query_yes_no(question, default="yes"):
 
 
 # ---------- Data prep ----------
+def build_data_matrix(corpus, labels, max_features, seqlen,
+                      split, threshold=1):
+    X = pre.get_sequences(corpus, max_features, seqlen)
+    y = pre.get_labels_binary(labels, threshold)
+
+    if (args.noseed is not True):
+        np.random.seed(1234)
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        test_size=split)
+    if (verbose > 1):
+        print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
+        print('padded example: ' + str(X[1]))
+    return (X_train, X_test, y_train, y_test)
+
+
 def get_data(dataset="reddit", qry_lmt=25000, subreddit_list=pre.subreddits(),
              max_features=5000, minlen=5, maxlen=100, seqlen=100,
              scorerange=None, negrange=False, split=0.2, verbose=1,
@@ -273,19 +287,6 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
         model.fit(X_train, y_train, nb_epoch=nb_epoch,
                   validation_data=validation_data)
         return model.evaluate(X_test, y_test, verbose=0)
-
-
-def print_cm(nn, X_test, y_test, batch_size=32):
-    print("Confusion Matrix (frequency, normalized):")
-    y_pred = nn.predict_classes(X_test, batch_size=batch_size, verbose=0)
-    print(y_pred)
-    print(sum(y_pred)/len(y_pred))
-    cm = confusion_matrix(y_test, y_pred)
-    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-
-    np.set_printoptions(precision=3, suppress=True)
-    print(cm)
-    print(cm_normalized)
 
 
 # ---------- Parsing command line arguments ----------
@@ -401,77 +402,80 @@ if (verbose > 0):
 
 # ---------- Store command line argument variables ----------
 # Dry run yes/no?
-dry_run = args.dry
-
+# dry_run = args.dry
 # Calculates all possible permutations from the model options selected
 # perm = args.perm
-
 # Calculate confusion matrix?
-cm = args.cm
-do_plot = args.plot
-
+# cm = args.cm
+# do_plot = args.plot
 # Train/Test split size
-split = args.split
-
+# split = args.split
 # Hyperparameter constants
-nb_filter = args.nb_filter
-batch_size = args.batch_size
-opt = args.opt
-nb_epoch = args.epochs
-embedding_dim = args.embed
-l1reg = args.l1
-l2reg = args.l2
-batchnorm = args.batchnorm
-
+# nb_filter = args.nb_filter
+# batch_size = args.batch_size
+# opt = args.opt
+# nb_epoch = args.epochs
+# embedding_dim = args.embed
+# l1reg = args.l1
+# l2reg = args.l2
+# batchnorm = args.batchnorm
 # Hyperparameter lists
-filter_widths = args.filters
-activation_list = args.activation
-dropout_list = args.dropout
+# filter_widths = args.filters
+# activation_list = args.activation
+# dropout_list = args.dropout
+# qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
+# scorerange = args.scorerange
+# negrange = args.negrange
+# balanced = args.balanced
+# max_features = args.max_features  # size of the vocabulary used
+# seqlen = args.seqlen  # length to which each sentence is padded
 
 # Permanent hyperparameters
-dropout_p = dropout_list[0]
-activation = activation_list[0]
-filter_size = filter_widths[0]
+dropout_p = args.dropout[0]
+activation = args.activation[0]
+filter_size = args.filters[0]
 
 if (args.fromfile is not None):
-    fromfile = args.fromfile + ".npz"
-else:
-    fromfile = args.fromfile
-
+    args.fromfile = args.fromfile + ".npz"
 # TODO: check arguments for exceptions
 
-
 # ---------- Data gathering ----------
-qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
-
 if (args.subreddits is not None):
-    subreddit_list = ', '.join("'{0}'".format(s) for s in args.subreddits)
+    args.subreddits = ', '.join("'{0}'".format(s) for s in args.subreddits)
 else:
-    subreddit_list = pre.subreddits()
+    args.subreddits = pre.subreddits()
 
-max_features = args.max_features  # size of the vocabulary used
-seqlen = args.seqlen  # length to which each sentence is padded
-maxlen = int(args.maxlen)  # maximum length of comment to be considered
-minlen = int(args.minlen)  # minimum length of a comment to be considered
-scorerange = args.scorerange
-negrange = args.negrange
-balanced = args.balanced
+args.maxlen = int(args.maxlen)  # maximum length of comment to be considered
+args.minlen = int(args.minlen)  # minimum length of a comment to be considered
 
-if (seqlen > maxlen):
+if (args.seqlen > args.maxlen):
     print("padding length is greater than actual length of the comments.")
-    print("setting padding length (" + str(seqlen) + ") to " + str(maxlen))
+    print("setting padding length (" +
+          str(args.seqlen) + ") to " +
+          str(args.maxlen))
 
-X_train, X_test, y_train, y_test = get_data(args.dataset,
-                                            qry_lmt=qry_lmt,
-                                            subreddit_list=subreddit_list,
-                                            max_features=max_features,
-                                            maxlen=maxlen, minlen=minlen,
-                                            scorerange=scorerange,
-                                            negrange=negrange,
-                                            seqlen=seqlen,
-                                            verbose=verbose, split=split,
-                                            balanced=balanced,
-                                            fromfile=fromfile)
+if (args.fromfile is not None and os.path.isfile(args.fromfile)):
+    f = np.load(args.fromfile)
+    raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
+                                          f['labels'], f['strata'])
+    if (verbose > 1):
+        print('Using dataset from file: ' + str(args.fromfile))
+else:
+    raw_corpus, corpus, labels, strata = pre.build_corpus(
+        args.subreddit_list,
+        args.qry_lmt,
+        minlen=args.minlen,
+        maxlen=args.maxlen,
+        scorerange=args.scorerange,
+        negrange=args.negrange,
+        batch_size=args.qry_lmt/10,
+        verbose=verbose,
+        balanced=args.balanced)
+    if (verbose > 1):
+        print('Using reddit dataset')
+
+X_train, X_test, y_train, y_test = build_data_matrix(
+    corpus, labels, args.max_features, args.seqlen, args.split)
 
 print("======================================================")
 
@@ -483,7 +487,7 @@ print("======================================================")
 if (args.logreg is True):
     if (verbose > 0):
         print("Running logistic regression benchmarks.")
-    if (dry_run is False):
+    if (args.dry_run is False):
         # Scikit-learn logreg.
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only
@@ -504,67 +508,70 @@ if (args.logreg is True):
 
 # ---------- Convolutional Neural Network ----------
 if (verbose > 0):
-    print("Optimizer permanently set to " + str(opt))
-    print("Embedding dim permanently set to " + str(embedding_dim))
-    print("Number of filters set to " + str(nb_filter))
-    print("Batch size set to " + str(batch_size))
-    print("Number of epochs set to " + str(nb_epoch))
+    print("Optimizer permanently set to " + str(args.opt))
+    print("Embedding dim permanently set to " + str(args.embedding_dim))
+    print("Number of filters set to " + str(args.nb_filter))
+    print("Batch size set to " + str(args.batch_size))
+    print("Number of epochs set to " + str(args.nb_epoch))
 
 # Hieran arbeiten wir heute!
 
-if (len(filter_widths) > 1 or len(dropout_list) > 1 or
-        len(activation_list) > 1):
+if (len(args.filters) > 1 or len(args.dropout) > 1 or
+        len(args.activation) > 1):
     if (args.model == "parallel"):
-        s = [dropout_list, activation_list]
+        s = [args.dropout, args.activation]
         models = list(product(*s))
     else:
-        s = [filter_widths, dropout_list, activation_list]
+        s = [args.filters, args.dropout, args.activation]
         models = list(product(*s))
 else:
-    models = [(filter_widths[0], dropout_p, activation)]
+    models = [(args.filters[0], dropout_p, activation)]
 
 print("Found " + str(len(models)) + " possible models.")
 if (query_yes_no("Do you wish to continue?")):
     for m in models:
         if (args.model == "simple"):
-            model = CNN_Simple(max_features=max_features,
-                               embedding_dim=embedding_dim,
-                               seqlen=seqlen,
-                               nb_filter=nb_filter,
+            model = CNN_Simple(max_features=args.max_features,
+                               embedding_dim=args.embedding_dim,
+                               seqlen=args.seqlen,
+                               nb_filter=args.nb_filter,
                                filter_size=m[0],
                                activation=m[2],
                                dropout_p=m[1],
-                               l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                               l1reg=args.l1, l2reg=args.l2,
+                               batchnorm=args.batchnorm,
                                verbosity=verbose)
         elif (args.model == "twolayer"):
-            model = CNN_TwoLayer(max_features=max_features,
-                                 embedding_dim=embedding_dim,
-                                 seqlen=seqlen,
-                                 nb_filter=nb_filter,
+            model = CNN_TwoLayer(max_features=args.max_features,
+                                 embedding_dim=args.embedding_dim,
+                                 seqlen=args.seqlen,
+                                 nb_filter=args.nb_filter,
                                  filter_size=m[0],
                                  activation=m[2],
                                  dropout_p=m[1],
-                                 l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                                 l1reg=args.l1, l2reg=args.l2,
+                                 batchnorm=args.batchnorm,
                                  verbosity=verbose)
         elif (args.model == "parallel"):
-            model = CNN_Parallel(max_features=max_features,
-                                 embedding_dim=embedding_dim,
-                                 seqlen=seqlen,
-                                 nb_filter=nb_filter,
-                                 filter_widths=filter_widths,
+            model = CNN_Parallel(max_features=args.max_features,
+                                 embedding_dim=args.embedding_dim,
+                                 seqlen=args.seqlen,
+                                 nb_filter=args.nb_filter,
+                                 filter_widths=args.filter_widths,
                                  activation=m[1],
                                  dropout_p=m[0],
-                                 l1reg=l1reg, l2reg=l2reg, batchnorm=batchnorm,
+                                 l1reg=args.l1, l2reg=args.l2,
+                                 batchnorm=args.batchnorm,
                                  verbosity=verbose)
         else:
             print("No valid model: " + str(args.model))
         print(model.summary())
-        if (dry_run is False):
+        if (args.dry_run is False):
             model.train(X_train, y_train, X_test, y_test, val=True,
-                        opt=opt, nb_epoch=nb_epoch)
-            if (cm is True):
-                print_cm(model.nn, X_test, y_test)
-            if (do_plot is True):
+                        opt=args.opt, nb_epoch=args.nb_epoch)
+            if (args.cm is True):
+                vis.print_cm(model.nn, X_test, y_test)
+            if (args.do_plot is True):
                 # We need to change the filenames so this will not be
                 # all overwritten..
                 o = str(args.outfile)

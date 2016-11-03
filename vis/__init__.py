@@ -2,7 +2,7 @@ import sys
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from keras.utils.visualize_util import plot
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, confusion_matrix
 import numpy as np
 
 
@@ -81,3 +81,16 @@ def plot_roc(model, X_test, y_test, y_score):
     plt.title('Receiver operating characteristic curve')
     plt.show()
     print('AUC: %f' % roc_auc)
+
+
+def print_cm(nn, X_test, y_test, batch_size=32):
+    print("Confusion Matrix (frequency, normalized):")
+    y_pred = nn.predict_classes(X_test, batch_size=batch_size, verbose=0)
+    print(y_pred)
+    print(sum(y_pred)/len(y_pred))
+    cm = confusion_matrix(y_test, y_pred)
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    np.set_printoptions(precision=3, suppress=True)
+    print(cm)
+    print(cm_normalized)
