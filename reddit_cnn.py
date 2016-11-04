@@ -91,17 +91,16 @@ The data are available at
 
 TODO:
 
-*   add option so you draw the plots to file instead of displayed them
+*   to actually used other data than reddit from file we have to change the
+    get_labels_binary used below and make it so the actual labels get imported
 *   also add option to have files named after models if you calculate multiple
 *   add option to cut the file-input using qry_lmt
 *   possibility to randomize selection from subreddits (as of now it will
     fill all data from first subreddit found if possible)
 *   implement non-random initialization for model
-*   implement k-fold crossvalidation
 *   add docstrings to all functions
 *   update existing docstrings
 *   add option to time benchmark
-*   outsource code for logreg, and time benchmarks
 *   catch commandline argument exceptions properly
 
 Known Bugs and Limitations:
@@ -112,19 +111,23 @@ Known Bugs and Limitations:
 *   SGD optimizer cannot be called through command line (since keras expects
     an actual SGD() call and not a string
 *   Newest iteration of database code is really slow.
-*   Some documentation is false or misleading.
+*   Some documentation is outdated.
 *   The current implementation of the CNN-model might not be the best.
 """
 
 from __future__ import print_function
 import argparse
 import sys
+import time
 import os.path
 from itertools import product
 
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import KFold, train_test_split
+from sklearn.metrics import roc_curve, auc
 
 from keras.models import Sequential
 from keras.layers.core import Dense
@@ -132,8 +135,7 @@ from keras.regularizers import l1l2
 
 import preprocess as pre
 import vis
-from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_TwoLayer2, CNN_Parallel
-from models.cnn import CNN_ThreeLayer
+from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_Parallel
 
 
 # ---------- General purpose functions ----------
@@ -307,9 +309,6 @@ parser.add_argument('-s', '--split', default=0.2, type=float,
 parser.add_argument('--batchnorm', default=False, action='store_true',
                     help='add Batch Normalization to activations')
 
-# Multiple layers not working as of yet.
-# parser.add_argument('-L', '--layers', default=1, type=int,
-#                     help='number of convolutional layers (default=1)')
 parser.add_argument('--model', default="simple",
                     help="the type of model (simple/parallel/twolayer)")
 
@@ -330,10 +329,14 @@ parser.add_argument('--kfold', default=0, type=int,
                     help='how many times to perform cross validation (def: 0)')
 
 # Other arguments
+out_default = "output/" + time.strftime("%Y%m%d-%H%M%S")
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
-parser.add_argument('-f', '--outfile', default=None,
+parser.add_argument('-f', '--outfile', default=out_default,
                     help='file to output results to (default: None)')
+parser.add_argument('-l', '--logfile', default=out_default,
+                    help='logfile for all output')
+# TODO: add option to disable log file
 parser.add_argument('--fromfile', default=None,
                     help="file input (default: None)")
 
@@ -342,51 +345,21 @@ args = parser.parse_args()
 
 # ---------- Logging ----------
 # Initialize logfile if required
-if (args.outfile is not None):
-    log1 = vis.Tee(args.outfile, 'w')
+if (args.logfile is not None):
+    log1 = vis.Tee(args.logfile + ".txt", 'w')
 
 # Verbosity levels
 # 0: nothing
 # 1: only endresults per model
 # 2: short summaries and results per epoch
-# 3: debug infos (data matrices, examples of data), live progress bar reports
-#    per epoch
+# 3: debug infos (data matrices, examples of data) and
+#    live progress bar reports per epoch
 verbose = args.verbose
 if (verbose > 0):
     print("verbosity level: " + str(verbose))
     print(args)
 
-
-# ---------- Store command line argument variables ----------
-# Dry run yes/no?
-# dry_run = args.dry
-# Calculates all possible permutations from the model options selected
-# perm = args.perm
-# Calculate confusion matrix?
-# cm = args.cm
-# do_plot = args.plot
-# Train/Test split size
-# split = args.split
-# Hyperparameter constants
-# nb_filter = args.nb_filter
-# batch_size = args.batch_size
-# opt = args.opt
-# nb_epoch = args.epochs
-# embedding_dim = args.embed
-# l1reg = args.l1
-# l2reg = args.l2
-# batchnorm = args.batchnorm
-# Hyperparameter lists
-# filter_widths = args.filters
-# activation_list = args.activation
-# dropout_list = args.dropout
-# qry_lmt = args.qry_lmt  # Actual number of posts we will be gathering.
-# scorerange = args.scorerange
-# negrange = args.negrange
-# balanced = args.balanced
-# max_features = args.max_features  # size of the vocabulary used
-# seqlen = args.seqlen  # length to which each sentence is padded
-
+# TODO: check arguments for exceptions
 # Permanent hyperparameters
 dropout_p = args.dropout[0]
 activation = args.activation[0]
@@ -394,7 +367,7 @@ filter_size = args.filters[0]
 
 if (args.fromfile is not None):
     args.fromfile = args.fromfile + ".npz"
-# TODO: check arguments for exceptions
+
 
 # ---------- Data gathering ----------
 if (args.subreddits is not None):
@@ -431,23 +404,42 @@ else:
     if (verbose > 1):
         print('Using reddit dataset')
 
+# Convert the corpus (i.e. text) into sequences with some Tokenizer magic.
+# The sequences will contain numbers referring to a word index table.
 X = pre.get_sequences(corpus, args.max_features, args.seqlen)
+
+# The labels (reddit Karma score) (with come in the integer scale) will be
+# converted to 0/1 binary values depending on a given threshold.
 y = pre.get_labels_binary(labels, args.threshold)
+indices = np.arange(X.shape[0])
 
 if (args.noseed is not True):
-        np.random.seed(1234)
+    # Not sure where the seed is actually used.
+    np.random.seed(1234)
 
 # Validation/Crossvalidation
 if (args.kfold > 0):
-    # k-fold Cross validation
+    # Calculate the splits for k-fold Cross validation. This function actually
+    # returns indices, so we will have to get the actual train and test data
+    # later on.
     kf = KFold(n_splits=args.kfold)
+    # The different folds will be stored in a list to loop over later.
     folds = [[train, test] for train, test in kf.split(X)]
 else:
-    # Normal train/test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                        test_size=args.split)
-    # /.../
+    # Regular train/test split without crossvalidation ('0-fold').
+    # In this case the data will be split according to a ratio determined with
+    # the --split argument.
+    X_train, X_test, y_train, y_test, idx1, idx2 = train_test_split(
+        X, y, indices, test_size=args.split)
+    # To be compatible with the k-fold crossvalidation code used below, we will
+    # also get the indices for the data instead of the actual data matrix.
+    # The actual split matrices for X and y are basically obsolete and are only
+    # used below in the logreg code, but are not really needed. They are here
+    # solely for legacy and debugging purposes.
+    folds = [[idx1, idx2]]
     if (verbose > 1):
+        # Also we need X_trian and X_test because this function has not been
+        # adapted to work with the k-fold Crossvalidation code.
         print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
         print('padded example: ' + str(X[1]))
 
@@ -456,7 +448,8 @@ print("======================================================")
 
 # ---------- Logistic Regression benchmark ----------
 # Run a logistic regression benchmark first so we can later see if our
-# ConvNet is somewhere in the ballpark.
+# ConvNet is somewhere in the ballpark. Still, this is quite a weak benchmark
+# and we should think about implement some SVM or Naive Bayes later on.
 
 if (args.logreg is True):
     if (verbose > 0):
@@ -464,16 +457,16 @@ if (args.logreg is True):
     if (args.dry is False):
         # Scikit-learn logreg.
         # This will also return the predictions to make sure the model doesn't
-        # just predict one class only
+        # just predict one class only (-> imbalanced dataset problem)
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test)))
         print("------------------------------------------------------")
 
-        # keras simple logreg
+        # A simple logistic regression from Keras library
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
               type='k1'))
         print("------------------------------------------------------")
 
-        # keras logreg with l1 and l2 regularization
+        # Keras logreg with l1 and l2 regularization
         print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
               type='k2'))
         print("------------------------------------------------------")
@@ -488,23 +481,41 @@ if (verbose > 0):
     print("Batch size set to " + str(args.batch_size))
     print("Number of epochs set to " + str(args.epochs))
 
-# Hieran arbeiten wir heute!
-
 if (len(args.filters) > 1 or len(args.dropout) > 1 or
         len(args.activation) > 1):
+    # Here we will check if a selection of more than 1 value is given for
+    # any of the main hyperparameters. If this is True, we will proceed to
+    # calculate all possible permutations from the given list of hyperparamter
+    # values.
     if (args.model == "parallel"):
+        # If parallel filter sizes is selected, however, we will only permutate
+        # all other hyparmaraters since the different filter sizes will all
+        # be used in one model.
         s = [args.dropout, args.activation]
         models = list(product(*s))
     else:
         s = [args.filters, args.dropout, args.activation]
         models = list(product(*s))
+        # 'models' now contains tuples with
+        #   (dropout percentage, activation function)
 else:
     models = [(args.filters[0], dropout_p, activation)]
+    # 'models' now contains tuples with
+    #   (filter width, dropout percentage, activation function)
 
-print("Found " + str(len(models)) + " possible models.")
+print("Found " + str(len(models)) + " possible models to calculate.")
 if (query_yes_no("Do you wish to continue?")):
+    # For every combination of hyperparameters (m = 1 permuation)
     for m in models:
+        # Calculate the selected model architecture.
+        # The wording here is very ambiguous. In the above line we refer to a
+        # 'model' as a specific combination of hyperparamters regardless of the
+        # specific architecture that is used. Below, a model is a specific
+        # model architecture (i.e. combination of layers).
         if (args.model == "simple"):
+            # The 'model'-variable here is the actual application of a certain
+            # architecture with a fixed set of hyperparameters. So this is the
+            # actual model in the most specific sense.
             model = CNN_Simple(max_features=args.max_features,
                                embedding_dim=args.embed,
                                seqlen=args.seqlen,
@@ -538,36 +549,71 @@ if (query_yes_no("Do you wish to continue?")):
                                  batchnorm=args.batchnorm,
                                  verbosity=verbose)
         else:
-            print("No valid model: " + str(args.model))
+            print("No valid architecture: " + str(args.model))
         print(model.summary())
+        # If there is no --dry switch -> proceed to train actual models.
         if (args.dry is False):
-            if (args.kfold > 0):
-                print("selected " + str(args.kfold) + "-fold (cross-)val")
-                metrics = {'val': [], 'loss': []}
-                for k in range(len(folds)):
-                    X_train, X_test = X[folds[k][0]], X[folds[k][1]]
-                    y_train, y_test = y[folds[k][0]], y[folds[k][1]]
-                    model.train(X_train, y_train, X_test, y_test, val=True,
-                                opt=args.opt, nb_epoch=args.epochs)
-                    metrics['loss'].append(model.nn.evaluate(X_test, y_test)[0])
-                    metrics['val'].append(model.nn.evaluate(X_test, y_test)[1])
-                print("val-acc: " + str(metrics))
-                print("avg. val" + str(float(sum(metrics['val']))/len(metrics['val'])))
-            else:
+            print("selected " + str(args.kfold) + "-fold (cross-)val")
+            # k should be equal to args.kfold in any case :)
+            k = len(folds)
+            # Dataframe to store the metrics, will  be printed later
+            metrics = pd.DataFrame(index=range(1, k+1),
+                                   columns=('loss', 'val', 'AUC'))
+            # List to store all the plots that will be created. In case we
+            # create other plots on the side later (not currently implemented)
+            # we can use this list to only store the important plots to PDF.
+            figs = [plt.figure(j) for j in range(1, 2*k+1)]
+            for j in range(1, k+1):
+                # Get train and test data for current CV fold and train model.
+                X_train, X_test = X[folds[j-1][0]], X[folds[j-1][1]]
+                y_train, y_test = y[folds[j-1][0]], y[folds[j-1][1]]
+                print("\n")
                 model.train(X_train, y_train, X_test, y_test, val=True,
                             opt=args.opt, nb_epoch=args.epochs)
+                # Receiver operating characteristic and Area under Curve.
+                # Calculate it first and store in a variable, then print
+                # the value to stdout.
+                y_score = model.nn.predict(X_test)
+                fpr, tpr, _ = roc_curve(y_test, y_score)
+                roc_auc = auc(fpr, tpr)
+                print('\nAUC: %f' % roc_auc)
+                # Save Loss, Validation accuracy, and AUC to the dataframe.
+                metrics.loc[j, ] = (model.nn.evaluate(X_test, y_test)[0],
+                                    model.nn.evaluate(X_test, y_test)[1],
+                                    roc_auc)
+                # Print Confusion Matrix if wanted
                 if (args.cm is True):
                     vis.print_cm(model.nn, X_test, y_test)
+                # Create plots
                 if (args.plot is True):
-                    # We need to change the filenames so this will not be
-                    # all overwritten..
-                    o = str(args.outfile)
-                    vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
-                    vis.plot_history(model.fitted, to_file=o + "-history.png")
-                    vis.print_history(model.fitted, to_file=o + "-history.txt")
+                    # This function will print validation and loss over epochs
+                    vis.plot_history(figs[j*2-2], model.fitted)
+                    # This function will plot the ROC curve
+                    vis.plot_roc(figs[j*2-1], roc_auc, fpr, tpr)
+                    # Making sure we have all the plots alternating as well,
+                    # so we always have a pair of history plot and auc plot
+                    # before the next CV-fold starts.
+            # Print table of loss/validation accuracies  and averages
+            print("\nLoss and validation accuracies for all folds:\n")
+            print(metrics)
+            print("\naveraged values ")
+            print(np.mean(metrics))
+            if (args.plot is True):
+                o = str(args.outfile)
+                # All plots that have been created so far and are hovering
+                # in plotly limbo will now be written to a pdf file.
+                vis.multipage(o + "-outputs.pdf")
+                # Call keras function to save a graph of the model architecture
+                # to a different file
+                vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
+                # Possibility to save a table of the validation/loss history
+                # over all epochs to a file. This function is outdated and also
+                # it is basically the same data as in the graphs that were
+                # created above.
+                # vis.print_history(model.fitted, to_file=o + "-history.txt")
         print("------------------------------------------------------")
 print("======================================================")
 
 # Close logfile
-if (args.outfile is not None):
+if (args.logfile is not None):
     log1.__del__()
