@@ -38,51 +38,53 @@ Usage:
                      [--logreg] [--dry] [--cm] [-v VERBOSE]
                      [--fromfile FROMFILE]
 
-Args:
+ Args:
 
-    -h, --help            show help message and exit
-    --dataset DATASET     dataset to be used (default: 'reddit')
-    -q QRY_LMT, --qry_lmt QRY_LMT
-                          amount of data to query (default: 10000)
-    --max_features MAX_FEATURES
-                          size of vocabulary (default: 5000)
-    --seqlen SEQLEN       length to which sequences will be padded (default:
-                          100)
-    --maxlen MAXLEN       maximum comment length (default: 100)
-    --minlen MINLEN       minimum comment length (default: 0)
-    --scorerange SCORERANGE SCORERANGE
-    --negrange
-    --balanced
-    -b BATCH_SIZE, --batch_size BATCH_SIZE
-                          batch size (default: 32)
-    -o OPT, --opt OPT     optimizer flag (default: 'rmsprop')
-    -e EPOCHS, --epochs EPOCHS
-                          number of epochs for models (default: 5)
-    -N NB_FILTER, --nb_filter NB_FILTER
-                          number of filters for each size (default: 100)
-    -F [FILTERS [FILTERS ...]], --filters [FILTERS [FILTERS ...]]
-                          filter sizes to be calculated (default: 3)
-    -A [ACTIVATION [ACTIVATION ...]], --activation [ACTIVATION ACTIVATION ...]
-                          activation functions to use (default: ['relu'])
-    -D [DROPOUT [DROPOUT ...]], --dropout [DROPOUT [DROPOUT ...]]
-                          dropout percentages (default: [0.25])
-    -E EMBED, --embed EMBED
-                          embedding dimension (default: 100)
-    -l1 L1                l1 regularization for penultimate layer
-    -l2 L2                l2 regularization for penultimate layer
-    -s SPLIT, --split SPLIT
-                          train/test split ratio (default: 0.1)
-    --batchnorm           add Batch Normalization to activations
-    --model MODEL         the type of model (simple/parallel/twolayer)
-    --perm                calculate all possible model Permutations (default:
-                          True)
-    --logreg              calculate logreg benchmark? (default: False)
-    --dry                 do not actually calculate anything (default: False)
-    --cm                  calculates confusion matrix (default: False)
-    -v VERBOSE, --verbose VERBOSE
-                          verbosity between 0 and 3 (default: 2)
-    --fromfile FROMFILE   file to read datamatrix from (default: None)
-                          (currently not in use)
+     -h, --help            show help message and exit
+     -q QRY_LMT, --qry_lmt QRY_LMT
+                           amount of data to query (default: 10000)
+     --max_features MAX_FEATURES
+                           size of vocabulary (default: 5000)
+     --seqlen SEQLEN       length to which sequences will be padded (default:
+                           100)
+     --maxlen MAXLEN       maximum comment length (default: 100)
+     --minlen MINLEN       minimum comment length (default: 0)
+     --scorerange SCORERANGE SCORERANGE
+     --negrange
+     --balanced
+     -b BATCH_SIZE, --batch_size BATCH_SIZE
+                           batch size (default: 32)
+     -o OPT, --opt OPT     optimizer flag (default: 'rmsprop')
+     -e EPOCHS, --epochs EPOCHS
+                           number of epochs for models (default: 5)
+     -N NB_FILTER, --nb_filter NB_FILTER
+                           number of filters for each size (default: 100)
+     -F [FILTERS [FILTERS ...]], --filters [FILTERS [FILTERS ...]]
+                           filter sizes to be calculated (default: 3)
+     -A [ACTIVATION [ACTIVATION ...]], --activation [ACTIVATION ACTIVATION ...]
+                           activation functions to use (default: ['relu'])
+     -D [DROPOUT [DROPOUT ...]], --dropout [DROPOUT [DROPOUT ...]]
+                           dropout percentages (default: [0.25])
+     -E EMBED, --embed EMBED
+                           embedding dimension (default: 100)
+     -l1 L1                l1 regularization for penultimate layer
+     -l2 L2                l2 regularization for penultimate layer
+     -s SPLIT, --split SPLIT
+                           train/test split ratio (default: 0.1)
+     --batchnorm           add Batch Normalization to activations
+     --model MODEL         the type of model (simple/parallel/twolayer)
+     --logreg              calculate logreg benchmark? (default: False)
+     --dry                 do not actually calculate anything (default: False)
+     --cm                  calculates confusion matrix (default: False)
+     --plot                calculate all the plots? (default: False)
+     --kfold               0 = regular train/test split according to --split
+                           1+ = do k-fold crossvali with this the # of folds
+     -v VERBOSE, --verbose VERBOSE
+                           verbosity between 0 and 3 (default: 2)
+     -f --outfile          filename for plots etc. (default output/datetime.ext)
+     -l --logfile          logfile for all output (default: output/datetime.txt)
+     --fromfile FROMFILE   file to read datamatrix from (default: None)
+                           (currently not in use)
 
 The data are available at
 [kaggle](https://www.kaggle.com/reddit/reddit-comments-may-2015).

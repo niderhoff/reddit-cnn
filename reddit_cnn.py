@@ -76,13 +76,16 @@ Args:
                           train/test split ratio (default: 0.1)
     --batchnorm           add Batch Normalization to activations
     --model MODEL         the type of model (simple/parallel/twolayer)
-    --perm                calculate all possible model Permutations (default:
-                          True)
     --logreg              calculate logreg benchmark? (default: False)
     --dry                 do not actually calculate anything (default: False)
     --cm                  calculates confusion matrix (default: False)
+    --plot                calculate all the plots? (default: False)
+    --kfold               0 = regular train/test split according to --split
+                          1+ = do k-fold crossvali with this the # of folds
     -v VERBOSE, --verbose VERBOSE
                           verbosity between 0 and 3 (default: 2)
+    -f --outfile          filename for plots etc. (default output/datetime.ext)
+    -l --logfile          logfile for all output (default: output/datetime.txt)
     --fromfile FROMFILE   file to read datamatrix from (default: None)
                           (currently not in use)
 
@@ -91,8 +94,6 @@ The data are available at
 
 TODO:
 
-*   to actually used other data than reddit from file we have to change the
-    get_labels_binary used below and make it so the actual labels get imported
 *   also add option to have files named after models if you calculate multiple
 *   add option to cut the file-input using qry_lmt
 *   possibility to randomize selection from subreddits (as of now it will
@@ -102,6 +103,12 @@ TODO:
 *   update existing docstrings
 *   add option to time benchmark
 *   catch commandline argument exceptions properly
+*   add plot with all ROC curves in one. also do better with the distribution
+    of ROC/AUC code and actual plot code throughout the files
+*   LR code has to be changed to support new code for k-fold crossvalidation.
+*   Tables can be printed prittier.
+*   Command line Arguments have to be rechecked as some are always on or serve
+    no purpose at all right now. (--perm for example)
 
 Known Bugs and Limitations:
 
@@ -113,6 +120,9 @@ Known Bugs and Limitations:
 *   Newest iteration of database code is really slow.
 *   Some documentation is outdated.
 *   The current implementation of the CNN-model might not be the best.
+*   Right now the log file is always on.
+*   Logreg is not the best Benchmark in the world.
+*   Writing history to extra file code is outdated and might not work properly.
 """
 
 from __future__ import print_function
