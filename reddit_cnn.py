@@ -131,6 +131,7 @@ import sys
 import time
 import os.path
 from itertools import product
+from collections import Counter
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -138,6 +139,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.metrics import roc_curve, auc
+from imblearn.over_sampling import SMOTE
 
 from keras.models import Sequential
 from keras.layers.core import Dense
@@ -220,6 +222,47 @@ def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
         print("max score: " + str(max(labels)))
         print("min length: " + str(min(map(len, corpus))))
         print("max length: " + str(max([len(x.split()) for x in corpus])))
+
+
+# ---------- Undersampling ----------------------
+def balanced_subsample(x, y, subsample_size=1.0):
+    """
+    Courtesy of Charlie Haley.
+    From http://stackoverflow.com/questions/23455728/scikit-learn-balanced-
+         subsampling
+    """
+
+    class_xs = []
+    min_elems = None
+
+    for yi in np.unique(y):
+        elems = x[np.where(y == yi)]
+        class_xs.append((yi, elems))
+        if min_elems is None or elems.shape[0] < min_elems:
+            min_elems = elems.shape[0]
+
+    use_elems = min_elems
+    if subsample_size < 1:
+        use_elems = int(min_elems*subsample_size)
+
+    xs = []
+    ys = []
+
+    for ci, this_xs in class_xs:
+        if len(this_xs) > use_elems:
+            np.random.shuffle(this_xs)
+
+        x_ = this_xs[:use_elems]
+        y_ = np.empty(use_elems)
+        y_.fill(ci)
+
+        xs.append(x_)
+        ys.append(y_)
+
+    xs = np.concatenate(xs)
+    ys = np.concatenate(ys)
+
+    return xs, ys
 
 
 # ---------- Diagnostics and Benchmarks ----------
@@ -421,11 +464,16 @@ X = pre.get_sequences(corpus, args.max_features, args.seqlen)
 # The labels (reddit Karma score) (with come in the integer scale) will be
 # converted to 0/1 binary values depending on a given threshold.
 y = pre.get_labels_binary(labels, args.threshold)
-indices = np.arange(X.shape[0])
 
-if (args.noseed is not True):
-    # Not sure where the seed is actually used.
-    np.random.seed(1234)
+if (args.balanced is "undersample"):
+    X, y = balanced_subsample(X, y)
+    print("Undersampling has been chosen. New sample length: " +
+          str(X.shape[0]))
+    print('Resampled dataset shape {}'.format(Counter(y)))
+elif (args.balanced is "smote"):
+    sm = SMOTE()
+    X, y = sm.fit_sample(X, y)
+    print('Resampled dataset shape {}'.format(Counter(y)))
 
 # Validation/Crossvalidation
 if (args.kfold > 0):
@@ -436,6 +484,7 @@ if (args.kfold > 0):
     # The different folds will be stored in a list to loop over later.
     folds = [[train, test] for train, test in kf.split(X)]
 else:
+    indices = np.arange(X.shape[0])
     # Regular train/test split without crossvalidation ('0-fold').
     # In this case the data will be split according to a ratio determined with
     # the --split argument.
