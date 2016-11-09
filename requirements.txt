@@ -1,59 +1,78 @@
 name: keras
+channels: !!python/tuple
+- !!python/unicode
+  'defaults'
 dependencies:
 - appnope=0.1.0=py27_0
+- astropy=1.2.1=np111py27_0
 - backports=1.0=py27_0
 - backports_abc=0.4=py27_0
 - configparser=3.5.0=py27_0
+- cycler=0.10.0=py27_0
 - decorator=4.0.10=py27_0
 - entrypoints=0.2.2=py27_0
+- enum34=1.1.6=py27_0
 - flake8=2.5.1=py27_0
+- freetype=2.5.5=1
 - functools32=3.2.3.2=py27_0
 - get_terminal_size=1.0.0=py27_0
 - h5py=2.6.0=np111py27_2
 - hdf5=1.8.17=1
-- ipykernel=4.4.1=py27_0
-- ipython=5.1.0=py27_0
+- icu=54.1=0
+- ipykernel=4.5.0=py27_0
+- ipython=5.1.0=py27_1
 - ipython-notebook=4.0.4=py27_0
 - ipython_genutils=0.1.0=py27_0
 - jinja2=2.8=py27_1
 - jsonschema=2.5.1=py27_0
-- jupyter_client=4.3.0=py27_0
-- jupyter_core=4.1.1=py27_0
+- jupyter_client=4.4.0=py27_0
+- jupyter_core=4.2.0=py27_0
+- libpng=1.6.22=0
 - markupsafe=0.23=py27_2
+- matplotlib=1.5.3=np111py27_1
 - mccabe=0.3.1=py27_0
-- mistune=0.7.2=py27_1
+- mistune=0.7.3=py27_1
 - mkl=11.3.3=0
 - nbconvert=4.2.0=py27_0
 - nbformat=4.1.0=py27_0
-- notebook=4.2.2=py27_0
-- numpy=1.11.1=py27_0
-- openssl=1.0.2h=2
+- notebook=4.2.3=py27_0
+- numpy=1.11.2=py27_0
+- openssl=1.0.2j=0
+- pandas=0.19.1=np111py27_0
 - path.py=8.2.1=py27_0
 - pathlib2=2.1.0=py27_0
 - pep8=1.7.0=py27_0
 - pexpect=4.0.1=py27_0
-- pickleshare=0.7.3=py27_0
-- pip=8.1.2=py27_0
-- prompt_toolkit=1.0.3=py27_0
+- pickleshare=0.7.4=py27_0
+- pip=9.0.1=py27_0
+- prompt_toolkit=1.0.8=py27_0
 - ptyprocess=0.5.1=py27_0
-- pyflakes=1.2.3=py27_0
+- pydot=1.0.28=py27_0
+- pydot-ng=1.0.0.15=py27_0
+- pyflakes=1.3.0=py27_0
 - pygments=2.1.3=py27_0
+- pyparsing=1.5.6=py27_0
+- pyqt=5.6.0=py27_0
 - python=2.7.12=1
+- python-dateutil=2.6.0=py27_0
 - python.app=1.2=py27_4
-- pyzmq=15.4.0=py27_0
+- pytz=2016.7=py27_0
+- pyzmq=16.0.0=py27_0
+- qt=5.6.0=0
 - readline=6.2=2
-- scikit-learn=0.17.1=np111py27_2
-- scipy=0.18.0=np111py27_0
-- setuptools=26.1.1=py27_0
+- scikit-learn=0.18=np111py27_0
+- scipy=0.18.1=np111py27_0
+- setuptools=27.2.0=py27_0
 - simplegeneric=0.8.1=py27_1
 - singledispatch=3.4.0.3=py27_0
+- sip=4.18=py27_0
 - six=1.10.0=py27_0
 - sqlite=3.13.0=0
 - ssl_match_hostname=3.4.0.2=py27_1
 - terminado=0.6=py27_0
 - tk=8.5.18=0
-- tornado=4.4.1=py27_0
-- traitlets=4.2.2=py27_0
+- tornado=4.4.2=py27_0
+- traitlets=4.3.1=py27_0
 - wcwidth=0.1.7=py27_0
 - wheel=0.29.0=py27_0
 - zlib=1.2.8=3
@@ -61,18 +80,15 @@ dependencies:
   - backports-abc==0.4
   - backports.shutil-get-terminal-size==1.0.0
   - backports.ssl-match-hostname==3.4.0.2
-  - cycler==0.10.0
+  - imbalanced-learn==0.1.8
   - ipython-genutils==0.1.0
-  - jupyter-client==4.3.0
-  - jupyter-core==4.1.1
+  - jupyter-client==4.4.0
+  - jupyter-core==4.2.0
   - keras==1.0.7
-  - matplotlib==1.5.2
   - plotly==1.12.9
-  - prompt-toolkit==1.0.3
-  - pyparsing==2.1.8
-  - python-dateutil==2.5.3
-  - pytz==2016.6.1
+  - prettytable==0.7.2
+  - prompt-toolkit==1.0.8
   - requests==2.11.1
+  - tabulate==0.7.5
   - theano==0.9.0.dev2
 prefix: /Users/idf/anaconda2/envs/keras
-
