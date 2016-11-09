@@ -143,7 +143,7 @@ from imblearn.over_sampling import SMOTE
 import preprocess as pre
 import vis
 from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_Parallel
-from benchmarks import lr_train
+from benchmarks import lr_train, nb_train, svm_train, nn_train
 
 
 # ---------- General purpose functions ----------
@@ -334,8 +334,8 @@ parser.add_argument('--model', default="simple",
 # parser.add_argument('--perm', default=True, action='store_true',
 #                     help='calculate all possible model Permutations \
 #                     (default: True)')
-parser.add_argument('--logreg', action='store_true',
-                    help='calculate logreg benchmark? (default: False)')
+parser.add_argument('--bench', action='store_true',
+                    help='calculate benchmarks? (default: False)')
 parser.add_argument('--dry', default=False, action='store_true',
                     help='do not actually calculate anything (default: False)')
 parser.add_argument('--cm', default=False, action='store_true',
@@ -474,7 +474,7 @@ print("======================================================")
 # ConvNet is somewhere in the ballpark. Still, this is quite a weak benchmark
 # and we should think about implement some SVM or Naive Bayes later on.
 
-if (args.logreg is True):
+if (args.bench is True):
     if (verbose > 0):
         print("Running logistic regression benchmarks.")
     if (args.dry is False):
@@ -495,6 +495,29 @@ if (args.logreg is True):
         print("------------------------------------------------------")
     print("======================================================")
 
+# ---------- Naive Bayes benchmark ----------
+    if (verbose > 0):
+        print("Running Naive Bayes benchmark.")
+    if (args.dry is False):
+        print(nb_train(X_train, y_train, X_test, y_test))
+    print("======================================================")
+
+# ---------- SVM benchmark ----------
+    if (verbose > 0):
+        print("Running SVM benchmark.")
+    if (args.dry is False):
+        print(svm_train(X_train, y_train, X_test, y_test))
+    print("======================================================")
+
+# ---------- ANN benchmark ----------
+    if (verbose > 0):
+        print("Running Neural Net benchmark.")
+    if (args.dry is False):
+        nn_train(X_train, y_train, X_test, y_test, args.max_features,
+                 args.embed, args.seqlen, l1reg=0.01, l2reg=0.01)
+    print("======================================================")
+
+#
 
 # ---------- Convolutional Neural Network ----------
 if (verbose > 0):

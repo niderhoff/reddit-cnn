@@ -1,7 +1,12 @@
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegressionCV, SGDClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.model_selection import GridSearchCV
 from keras.models import Sequential
-from keras.layers.core import Dense
+from keras.layers.core import Dense, Dropout, Activation
+from keras.layers.embeddings import Embedding
 from keras.regularizers import l1l2
+from sklearn.metrics import roc_curve, auc
+import numpy as np
 
 
 # ---------- Diagnostics and Benchmarks ----------
@@ -39,3 +44,51 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
 
 
 # Naive Bayes Classifier
+def nb_train(X_train, y_train, X_test, y_test, verbose=1):
+    parameters = {'alpha': (1e-2, 1e-3, 1e-4), 'fit_prior': (True, False)}
+    clf = MultinomialNB()
+    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1)
+    gs_clf.fit(X_train, y_train)
+    predicted = gs_clf.predict(X_test)
+    val = np.mean(predicted == y_test)
+    return val, predicted
+
+
+# SVM benchmark
+def svm_train(X_train, y_train, X_test, y_test):
+    parameters = {'alpha': (1e-2, 1e-3, 1e-4),
+                  'penalty': ('l1', 'l2', 'elasticnet'),
+                  'n_iter': (5, 10)}
+    clf = SGDClassifier(loss='hinge')
+    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1)
+    gs_clf.fit(X_train, y_train)
+    predicted = gs_clf.predict(X_test)
+    val = np.mean(predicted == y_test)
+    return val, predicted
+
+
+# Simple ANN Benchmarks
+def nn_train(X_train, y_train, X_test, y_test, max_features, embedding_dim,
+             seqlen, l1reg, l2reg):
+    model = Sequential()
+    model.add(Embedding(input_dim=max_features,
+              output_dim=embedding_dim,
+              input_length=seqlen))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+    model.add(Dense(300))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.4))
+    model.add(Dense(1))
+    model.add(Activation('sigmoid'))
+    model.compile(loss='binary_crossentropy', optimizer=SGD(),
+                  metrics=['accuracy'])
+    model.fit(X_train, y_train, batch_size=32, nb_epoch=10,
+              validation_data=(X_test, y_test),
+              verbose=0)
+    y_score = model.predict(X_test)
+    fpr, tpr, _ = roc_curve(y_test, y_score)
+    roc_auc = auc(fpr, tpr)
+    print('\nAUC: %f' % roc_auc)
+    print(model.evaluate(X_test, y_test))
+    vis.print_cm(model.nn, X_test, y_test)
