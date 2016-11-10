@@ -137,13 +137,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.metrics import roc_curve, auc
 from imblearn.over_sampling import SMOTE
 
 import preprocess as pre
 import vis
 from models.cnn import CNN_Simple, CNN_TwoLayer, CNN_Parallel
-from benchmarks import lr_train, nb_train, svm_train, nn_train
+from benchmarks import lr_train, nb_train, svm_train
 
 
 # ---------- General purpose functions ----------
@@ -199,10 +198,6 @@ def build_data_matrix(corpus, labels, max_features, seqlen,
 
 
 def print_data_info(corpus, labels, X_train, X_test, y_train, y_test):
-    print('corpus length: ' + str(len(corpus)))
-    print('corpus example: "' + str(corpus[1]) + '"')
-    print('labels length: ' + str(len(labels)))
-    print('corpus example: "' + str(corpus[1]) + '"')
     if (verbose > 2):
         print("labels: " + str(labels))
         print("X_train :" + str(X_train))
@@ -365,6 +360,9 @@ args = parser.parse_args()
 if (args.logfile is not None):
     log1 = vis.Tee(args.logfile + ".txt", 'w')
 
+print("Reddit comment data CNN")
+print("------------------------------------------------------")
+
 # Verbosity levels
 # 0: nothing
 # 1: only endresults per model
@@ -374,7 +372,8 @@ if (args.logfile is not None):
 verbose = args.verbose
 if (verbose > 0):
     print("verbosity level: " + str(verbose))
-    print(args)
+    if (verbose > 2):
+        print(args)
 
 # TODO: check arguments for exceptions
 # Permanent hyperparameters
@@ -387,6 +386,10 @@ if (args.fromfile is not None):
 
 
 # ---------- Data gathering ----------
+if (verbose > 0):
+    print("------------------------------------------------------")
+    print("Gathering data.")
+
 if (args.subreddits is not None):
     args.subreddits = ', '.join("'{0}'".format(s) for s in args.subreddits)
 else:
@@ -408,6 +411,8 @@ if (args.fromfile is not None and os.path.isfile(args.fromfile)):
     if (verbose > 1):
         print('Using dataset from file: ' + str(args.fromfile))
 else:
+    if (verbose > 1):
+        print('Using reddit dataset.')
     raw_corpus, corpus, labels, strata = pre.build_corpus(
         args.subreddits,
         args.qry_lmt,
@@ -418,8 +423,10 @@ else:
         batch_size=args.qry_lmt/10,
         verbose=verbose,
         balanced=args.balanced)
-    if (verbose > 1):
-        print('Using reddit dataset')
+print("------------------------------------------------------")
+print('corpus length: ' + str(len(corpus)))
+print('corpus example: "' + str(corpus[1]) + '"')
+print('labels length: ' + str(len(labels)))
 
 # Convert the corpus (i.e. text) into sequences with some Tokenizer magic.
 # The sequences will contain numbers referring to a word index table.
@@ -428,16 +435,18 @@ X = pre.get_sequences(corpus, args.max_features, args.seqlen)
 # The labels (reddit Karma score) (with come in the integer scale) will be
 # converted to 0/1 binary values depending on a given threshold.
 y = pre.get_labels_binary(labels, args.threshold)
+print('labels distribution {}'.format(Counter(y.ravel())))
 
 if (args.balanced == "undersample"):
     X, y = balanced_subsample(X, y)
-    print("Undersampling has been chosen. New sample length: " +
+    print("Rebalancing data. Undersampling has been chosen. New length: " +
           str(X.shape[0]))
-    print('Resampled dataset shape {}'.format(Counter(y)))
+    print('Resampled dataset distribution {}'.format(Counter(y)))
 elif (args.balanced == "smote"):
+    print("Rebalancing data. SMOTE has been chosen.")
     sm = SMOTE()
     X, y = sm.fit_sample(X, y.ravel())
-    print('Resampled dataset shape {}'.format(Counter(y)))
+    print('Resampled dataset distribution {}'.format(Counter(y)))
 
 # Validation/Crossvalidation
 if (args.kfold > 0):
@@ -477,50 +486,120 @@ print("======================================================")
 if (args.bench is True):
     if (verbose > 0):
         print("Running logistic regression benchmarks.")
+        print("------------------------------------------------------")
     if (args.dry is False):
+        metrics = []
         # Scikit-learn logreg.
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only (-> imbalanced dataset problem)
-        print(lr_train(X_train, y_train, validation_data=(X_test, y_test)))
+        predict = lr_train(X_train, y_train, validation_data=(X_test, y_test),
+                           verbose=verbose)
+        val = np.mean(predict == y_test)
+        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+        metrics.append([val, fpr, tpr, roc_auc])
+        if (verbose > 0):
+            print("Predictions: " + str(predict))
+            print("Validation accuracy: " + str(val))
+            print('AUC: %f' % roc_auc)
         print("------------------------------------------------------")
 
         # A simple logistic regression from Keras library
-        print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
-              type='k1'))
+        model = lr_train(X_train, y_train, validation_data=(X_test, y_test),
+                         type='k1', verbose=verbose)
+        predict = np.squeeze(model.predict_classes(X_test, verbose=0))
+        val = np.mean(predict == y_test)
+
+        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+        metrics.append([val, fpr, tpr, roc_auc])
+        if (verbose > 0):
+            print("\nPredictions: " + str(predict))
+            print("Validation accuracy: " + str(val))
+            print('AUC: %f' % roc_auc)
         print("------------------------------------------------------")
 
         # Keras logreg with l1 and l2 regularization
-        print(lr_train(X_train, y_train, validation_data=(X_test, y_test),
-              type='k2'))
-        print("------------------------------------------------------")
+        model = lr_train(X_train, y_train, validation_data=(X_test, y_test),
+                         type='k2', verbose=verbose)
+        predict = np.squeeze(model.predict_classes(X_test, verbose=0))
+        val = np.mean(predict == y_test)
+        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+        metrics.append([val, fpr, tpr, roc_auc])
+        if (verbose > 0):
+            print("\nPredictions: " + str(predict))
+            print("Validation accuracy: " + str(val))  # TODO: falsch
+            print('AUC: %f' % roc_auc)
     print("======================================================")
 
 # ---------- Naive Bayes benchmark ----------
     if (verbose > 0):
         print("Running Naive Bayes benchmark.")
+        print("------------------------------------------------------")
+        if (verbose > 1):
+            print("Tuning with GridSearchCV and parameters " +
+                  "{'alpha': (1e-2, 1e-3, 1e-4), 'fit_prior': (True, False)")
+            print("Class priors are adjusted according to data.")
+            print("Using default 3-fold Crossvalidation.")
     if (args.dry is False):
-        print(nb_train(X_train, y_train, X_test, y_test))
+        val, predict = nb_train(X_train, y_train, X_test, y_test)
+        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+        metrics.append([val, fpr, tpr, roc_auc])
+        if (verbose > 0):
+            print("\nPredictions: " + str(predict))
+            print("Validation accuracy: " + str(val))  # TODO: falsch
+            print('AUC: %f' % roc_auc)
     print("======================================================")
 
 # ---------- SVM benchmark ----------
     if (verbose > 0):
-        print("Running SVM benchmark.")
+        print("Running SVM benchmark (5 epochs).")
+        print("------------------------------------------------------")
+        if (verbose > 1):
+            print("Tuning with GridSearchCV and parameters " +
+                  "{'alpha': (1e-2, 1e-3, 1e-4), 'penalty': ('l1', 'l2'," +
+                  " 'elasticnet'), 'n_iter': (5, 10), 'l1_ratio': (0.15)}")
+            print("Fitting with intercept. 5 epochs, training data shuffled" +
+                  " after each epoch.")
+            print("Learning rate: eta = 1.0 / (alpha * (t + t0))")
+            print("All classes are supposed to have weight 1.")
+            print("Using default 3-fold Crossvalidation.")
     if (args.dry is False):
-        print(svm_train(X_train, y_train, X_test, y_test))
+        val, predict = svm_train(X_train, y_train, X_test, y_test)
+        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+        metrics.append([val, fpr, tpr, roc_auc])
+        if (verbose > 0):
+            print("\nPredictions: " + str(predict))
+            print("Validation accuracy: " + str(val))  # TODO: falsch
+            print('AUC: %f' % roc_auc)
     print("======================================================")
 
 # ---------- ANN benchmark ----------
-    if (verbose > 0):
-        print("Running Neural Net benchmark.")
-    if (args.dry is False):
-        nn_train(X_train, y_train, X_test, y_test, args.max_features,
-                 args.embed, args.seqlen, l1reg=0.01, l2reg=0.01)
-    print("======================================================")
+#    if (verbose > 0):
+#        print("Running Neural Net benchmark.")
+#    if (args.dry is False):
+#        nn_train(X_train, y_train, X_test, y_test, args.max_features,
+#                 args.embed, args.seqlen, l1reg=0.01, l2reg=0.01)
+#    print("======================================================")
 
-#
+    if (args.plot is True):
+        # metrics 5x4 list with val, fpr, tpr, roc_auc
+        for k in metrics:
+            # TODO: we can only do this for 4/5 benchmarks so we have to
+            # think of a way to handle this.
+            # vis.plot_history(plt.figure(), k[0])
+            # This function will plot the ROC curve
+            vis.plot_roc(plt.figure(), k[1], k[2], k[3])
+        o = str(args.outfile)
+        # All plots that have been created so far and are hovering
+        # in plotly limbo will now be written to a pdf file.
+        vis.multipage(o + "-benchmarks.pdf")
+        # Close all plots so they won't appear in next file.
+        plt.close('all')
+
 
 # ---------- Convolutional Neural Network ----------
 if (verbose > 0):
+    print("Running Convolutonal Neural Network")
+    print("------------------------------------------------------")
     print("Optimizer permanently set to " + str(args.opt))
     print("Embedding dim permanently set to " + str(args.embed))
     print("Number of filters set to " + str(args.nb_filter))
@@ -620,9 +699,9 @@ if (query_yes_no("Do you wish to continue?")):
                 # Calculate it first and store in a variable, then print
                 # the value to stdout.
                 y_score = model.nn.predict(X_test)
-                fpr, tpr, _ = roc_curve(y_test, y_score)
-                roc_auc = auc(fpr, tpr)
-                print('\nAUC: %f' % roc_auc)
+                fpr, tpr, roc_auc = vis.roc_auc(y_test, y_score)
+                if (verbose > 0):
+                    print('\nAUC: %f' % roc_auc)
                 # Save Loss, Validation accuracy, and AUC to the dataframe.
                 metrics.loc[j, ] = (model.nn.evaluate(X_test, y_test)[0],
                                     model.nn.evaluate(X_test, y_test)[1],
@@ -635,7 +714,7 @@ if (query_yes_no("Do you wish to continue?")):
                     # This function will print validation and loss over epochs
                     vis.plot_history(figs[j*2-2], model.fitted)
                     # This function will plot the ROC curve
-                    vis.plot_roc(figs[j*2-1], roc_auc, fpr, tpr)
+                    vis.plot_roc(figs[j*2-1], fpr, tpr, roc_auc)
                     # Making sure we have all the plots alternating as well,
                     # so we always have a pair of history plot and auc plot
                     # before the next CV-fold starts.

@@ -103,7 +103,7 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
             query = query + " NOT"
         query = query + " BETWEEN {0} and {1} AND".format(*scorerange)
     query = query + " subreddit in ({0})".format(subreddit_list)
-    if (verbose > 1):
+    if (verbose > 2):
         print(query)
     c.execute(query)
 
@@ -116,11 +116,11 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
 
     # ---- OUTER LOOP ----
     while True:
-        if (verbose > 0):
+        if (verbose > 1):
             print(str(i * batch_size) + " comments fetched.")
         current_batch = c.fetchmany(batch_size)
         if not current_batch:
-            if (verbose > 0):
+            if (verbose > 1):
                 print("No more rows to fetch.")
             break
         # ---------- INNER LOOP ------------

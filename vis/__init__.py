@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from astropy.table import Table
 from keras.utils.visualize_util import plot
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 import numpy as np
 
 
@@ -76,7 +76,7 @@ def plot_nn_graph(nnobj, to_file=False,
          show_layer_names=show_layer_names)
 
 
-def plot_roc(fig, roc_auc, fpr, tpr, to_file=None):
+def plot_roc(fig, fpr, tpr, roc_auc, to_file=None):
     # y_score = nn.predict(X_test)
     # fpr, tpr, _ = roc_curve(y_test, y_score)
     # roc_auc = auc(fpr, tpr)
@@ -103,6 +103,12 @@ def print_cm(nn, X_test, y_test, batch_size=32):
     np.set_printoptions(precision=3, suppress=True)
     print(cm)
     print(cm_normalized)
+
+
+def roc_auc(target, predicted):
+    fpr, tpr, _ = roc_curve(target, predicted)
+    roc_auc = auc(fpr, tpr)
+    return fpr, tpr, roc_auc
 
 
 def multipage(filename, figs=None, dpi=200):
