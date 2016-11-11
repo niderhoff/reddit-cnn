@@ -349,7 +349,7 @@ parser.add_argument('-f', '--outfile', default=out_default,
 parser.add_argument('-l', '--logfile', default=out_default,
                     help='logfile for all output')
 # TODO: add option to disable log file
-parser.add_argument('--fromfile', default=None,
+parser.add_argument('--fromfile', default="store/corpus",
                     help="file input (default: None)")
 
 args = parser.parse_args()
@@ -381,8 +381,8 @@ dropout_p = args.dropout[0]
 activation = args.activation[0]
 filter_size = args.filters[0]
 
-if (args.fromfile is not None):
-    args.fromfile = args.fromfile + ".npz"
+if (args.fromfile is not None and args.fromfile is not ""):
+    fromfile = args.fromfile + ".npz"
 
 
 # ---------- Data gathering ----------
@@ -404,12 +404,12 @@ if (args.seqlen > args.maxlen):
           str(args.seqlen) + ") to " +
           str(args.maxlen))
 
-if (args.fromfile is not None and os.path.isfile(args.fromfile)):
-    f = np.load(args.fromfile)
+if (fromfile is not None and os.path.isfile(fromfile)):
+    f = np.load(fromfile)
     raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
                                           f['labels'], f['strata'])
     if (verbose > 1):
-        print('Using dataset from file: ' + str(args.fromfile))
+        print('Using dataset from file: ' + str(fromfile))
 else:
     if (verbose > 1):
         print('Using reddit dataset.')

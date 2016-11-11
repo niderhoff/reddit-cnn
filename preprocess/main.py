@@ -20,6 +20,8 @@ import re
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
+from os import path, makedirs
+import errno
 
 
 def db_conn(database="database.sqlite"):
@@ -181,6 +183,12 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
         print("Found " + str(len(corpus)) + " comments valid to your query.")
         print("Done.")
     if (tofile is not None):
+        if not path.exists(path.dirname(tofile)):
+            try:
+                makedirs(path.dirname(tofile))
+            except OSError as exc:
+                if exc.errno != errno.EEXIST:
+                    raise
         np.savez(tofile, raw_corpus=raw_corpus, corpus=corpus, labels=labels,
                  strata=strata)
         print("Saved corpus data to " + tofile)
