@@ -9,11 +9,11 @@ from keras.regularizers import l1, l2, l1l2
 
 
 class CNN_Simple(object):
-    def __init__(self,  **settings):
+    def __init__(self, parameters):
         # max_features, embedding_dim, seqlen,
         # nb_filter, filter_size, activation, dropout_p,
         # l1reg, l2reg, batchnorm,
-        self.settings = settings
+        self.settings = parameters
         self.settings['verbosity'] = 2
         seqlen = self.settings['seqlen']
         filter_size = self.settings['filter_size']

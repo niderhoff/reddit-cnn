@@ -15,6 +15,7 @@ TODO:
        (start with line by line and see how fast it is.)
     *  Add option to randomize subreddit on each read
 """
+from __future__ import generators
 import sqlite3
 import re
 import numpy as np
@@ -88,6 +89,102 @@ def clean_comment(comment, replace_numbers=False):
     return(r)
 
 
+def build_corpus_random(idfile="store/rowids", scorerange=None, negrange=False,
+                        subreddit_list=subreddits(), verbose=1, tofile=None,
+                        qry_lmt=10000, batch_size=1000, no_urls=False,
+                        no_deleted=False, maxlen=None, minlen=None):
+    # TODO: check if this is actually slower than an extended sql query...
+    f = np.load(idfile + ".npz")
+    rowids = f['rowids']
+    rowidx = range(0, len(rowids))
+    db = db_conn()
+    c = db.cursor()
+    if (verbose > 0):
+        print("Building corpus.")
+    raw_corpus, corpus, labels, strata = [], [], [], []
+    i = 1
+    status = True
+    while True:
+        choice = np.random.choice(rowidx, batch_size, replace=False)
+        fetchids = ", ".join("{0}".format(s) for s in rowids[choice])
+        for index in sorted(choice, reverse=True):
+            try:
+                del rowidx[index]
+            except IndexError:
+                print("all out of poems.")
+        query = "SELECT subreddit, body, score FROM May2015 WHERE"
+        query += " rowid in ({0}) AND".format(fetchids)
+        if (scorerange is not None):
+            query = query + " score"
+            if (negrange is True):
+                query = query + " NOT"
+            query = query + " BETWEEN {0} and {1} AND".format(*scorerange)
+        query = query + " subreddit in ({0})".format(subreddit_list)
+        if (verbose > 2):
+            print(query)
+        c.execute(query)
+
+        if (verbose > 1):
+            print(str(i * batch_size) + " comments fetched.")
+        current_batch = c.fetchall()
+
+        if not current_batch:
+            if (verbose > 1):
+                print("No more rows to fetch.")
+            break
+        # ---------- INNER LOOP ------------
+        for row in current_batch:
+            body = row[1]
+            score = row[2]
+            check = True
+            # exception conditions come here. if not met, post is added
+            if (no_deleted is True and body == "[deleted]"):
+                # remove posts that consist of [deleted], indicating a post
+                # that has been deleted on reddit
+                check = False
+            if (no_urls is True):
+                # if a URL is found, remove the post in its entirety
+                regexp = re.compile("[a-zA-Z]+?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|\
+                [!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+                if regexp.search(body) is not None:
+                    check = False
+            # Clean the body from non-alphanumeric characters, replace certain
+            # tokens (urls, "tl;dr", etc.)
+            body = clean_comment(body)
+            if (maxlen is not None and len(body.split()) > maxlen):
+                # check if number of words is within required range
+                check = False
+            if (minlen is not None and len(body.split()) < minlen):
+                check = False
+            if (check is True):
+                strata.append(row[0])
+                raw_corpus.append(row[1])
+                corpus.append(str(body))
+                labels.append(score)
+            if (len(corpus) >= qry_lmt):
+                # if sufficient number of valid posts is found, break the loop
+                status = False
+                break
+        # ---------- END INNER LOOP ------------
+        i += 1
+        if (status is False):
+            break
+    if (verbose > 0):
+        print("Found " + str(len(corpus)) + " comments valid to your query.")
+        print("Done.")
+    if (tofile is not None):
+        if not path.exists(path.dirname(tofile)):
+            try:
+                makedirs(path.dirname(tofile))
+            except OSError as exc:
+                if exc.errno != errno.EEXIST:
+                    raise
+        np.savez(tofile, raw_corpus=raw_corpus, corpus=corpus, labels=labels,
+                 strata=strata)
+        print("Saved corpus data to " + tofile)
+    return(raw_corpus, corpus, labels, strata)
+
+
 def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                  no_urls=False, no_deleted=False,
                  minlen=None, maxlen=None, scorerange=None, negrange=False,
@@ -126,7 +223,6 @@ def build_corpus(subreddit_list=subreddits(), qry_lmt=10000, batch_size=1000,
                 print("No more rows to fetch.")
             break
         # ---------- INNER LOOP ------------
-        # rewrite of old append_corpus_until_done(...) function
         for row in current_batch:
             body = row[1]
             score = row[2]

@@ -382,7 +382,7 @@ activation = args.activation[0]
 filter_size = args.filters[0]
 
 if (args.fromfile is not None and args.fromfile is not ""):
-    fromfile = args.fromfile + ".npz"
+    args.fromfile = args.fromfile + ".npz"
 
 
 # ---------- Data gathering ----------
@@ -404,12 +404,12 @@ if (args.seqlen > args.maxlen):
           str(args.seqlen) + ") to " +
           str(args.maxlen))
 
-if (fromfile is not None and os.path.isfile(fromfile)):
-    f = np.load(fromfile)
+if (args.fromfile is not None and os.path.isfile(args.fromfile)):
+    f = np.load(args.fromfile)
     raw_corpus, corpus, labels, strata = (f['raw_corpus'], f['corpus'],
                                           f['labels'], f['strata'])
     if (verbose > 1):
-        print('Using dataset from file: ' + str(fromfile))
+        print('Using dataset from file: ' + str(args.fromfile))
 else:
     if (verbose > 1):
         print('Using reddit dataset.')
@@ -470,7 +470,7 @@ else:
     # solely for legacy and debugging purposes.
     folds = [[idx1, idx2]]
     if (verbose > 1):
-        # Also we need X_trian and X_test because this function has not been
+        # Also we need X_train and X_test because this function has not been
         # adapted to work with the k-fold Crossvalidation code.
         print_data_info(corpus, labels, X_train, X_test, y_train, y_test)
         print('padded example: ' + str(X[1]))
@@ -488,46 +488,73 @@ if (args.bench is True):
         print("Running logistic regression benchmarks.")
         print("------------------------------------------------------")
     if (args.dry is False):
-        metrics = []
+        k = len(folds)
         # Scikit-learn logreg.
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only (-> imbalanced dataset problem)
-        predict = lr_train(X_train, y_train, validation_data=(X_test, y_test),
-                           verbose=verbose)
-        val = np.mean(predict == y_test)
-        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics.append([val, fpr, tpr, roc_auc])
+
+        metrics = {'val': [], 'fpr': [], 'tpr': [], 'roc_auc': [],
+                   'predict': []}
+        for j in folds:
+            X_train, X_test = X[j[0]], X[j[1]]
+            y_train, y_test = y[j[0]], y[j[1]]
+            # Dataframe to store the metrics, will  be printed later
+            predict = lr_train(X_train, y_train, validation_data=(X_test,
+                               y_test), verbose=verbose)
+            print(predict)
+            val = np.mean(predict == y_test)
+            fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+            metrics['val'].append(val)
+            metrics['fpr'].append(fpr)
+            metrics['tpr'].append(tpr)
+            metrics['roc_auc'].append(roc_auc)
+            metrics['predict'].append(predict)
         if (verbose > 0):
-            print("Predictions: " + str(predict))
-            print("Validation accuracy: " + str(val))
-            print('AUC: %f' % roc_auc)
+            print("Validation accuracy avg: " + str(
+                  np.mean(metrics['val'][0:2])))
+            print('AUC avg: %f' % np.mean(metrics['roc_auc'][0:2]))
         print("------------------------------------------------------")
 
         # A simple logistic regression from Keras library
-        model = lr_train(X_train, y_train, validation_data=(X_test, y_test),
-                         type='k1', verbose=verbose)
-        predict = np.squeeze(model.predict_classes(X_test, verbose=0))
-        val = np.mean(predict == y_test)
-
-        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics.append([val, fpr, tpr, roc_auc])
+        for j in folds:
+            X_train, X_test = X[j[0]], X[j[1]]
+            y_train, y_test = y[j[0]], y[j[1]]
+            model = lr_train(X_train, y_train, validation_data=(X_test,
+                             y_test), type='k1', verbose=verbose)
+            predict = np.squeeze(model.predict_classes(X_test, verbose=0))
+            print(predict)
+            val = np.mean(predict == y_test)
+            fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+            metrics['val'].append(val)
+            metrics['fpr'].append(fpr)
+            metrics['tpr'].append(tpr)
+            metrics['roc_auc'].append(roc_auc)
+            metrics['predict'].append(predict)
         if (verbose > 0):
-            print("\nPredictions: " + str(predict))
-            print("Validation accuracy: " + str(val))
-            print('AUC: %f' % roc_auc)
+            print("Validation accuracy avg: " + str(
+                  np.mean(metrics['val'][3:6])))
+            print('AUC avg: %f' % np.mean(metrics['roc_auc'][3:6]))
         print("------------------------------------------------------")
 
         # Keras logreg with l1 and l2 regularization
-        model = lr_train(X_train, y_train, validation_data=(X_test, y_test),
-                         type='k2', verbose=verbose)
-        predict = np.squeeze(model.predict_classes(X_test, verbose=0))
-        val = np.mean(predict == y_test)
-        fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics.append([val, fpr, tpr, roc_auc])
+        for j in folds:
+            X_train, X_test = X[j[0]], X[j[1]]
+            y_train, y_test = y[j[0]], y[j[1]]
+            model = lr_train(X_train, y_train, validation_data=(X_test,
+                             y_test), type='k2', verbose=verbose)
+            predict = np.squeeze(model.predict_classes(X_test, verbose=0))
+            print(predict)
+            val = np.mean(predict == y_test)
+            fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
+            metrics['val'].append(val)
+            metrics['fpr'].append(fpr)
+            metrics['tpr'].append(tpr)
+            metrics['roc_auc'].append(roc_auc)
+            metrics['predict'].append(predict)
         if (verbose > 0):
-            print("\nPredictions: " + str(predict))
-            print("Validation accuracy: " + str(val))  # TODO: falsch
-            print('AUC: %f' % roc_auc)
+            print("Validation accuracy avg: " + str(
+                  np.mean(metrics['val'][6:9])))
+            print('AUC avg: %f' % np.mean(metrics['roc_auc'][6:9]))
     print("======================================================")
 
 # ---------- Naive Bayes benchmark ----------
@@ -539,7 +566,8 @@ if (args.bench is True):
                   "{'alpha': (1e-2, 1e-3, 1e-4), 'fit_prior': (True, False)")
             print("Class priors are adjusted according to data.")
             print("Using default 3-fold Crossvalidation.")
-    if (args.dry is False):
+    if (args.dry is "Fale"):
+        # gridserach first or cv firsT?
         val, predict = nb_train(X_train, y_train, X_test, y_test)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
         metrics.append([val, fpr, tpr, roc_auc])
@@ -562,7 +590,7 @@ if (args.bench is True):
             print("Learning rate: eta = 1.0 / (alpha * (t + t0))")
             print("All classes are supposed to have weight 1.")
             print("Using default 3-fold Crossvalidation.")
-    if (args.dry is False):
+    if (args.dry is "fals"):
         val, predict = svm_train(X_train, y_train, X_test, y_test)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
         metrics.append([val, fpr, tpr, roc_auc])
@@ -637,50 +665,52 @@ if (query_yes_no("Do you wish to continue?")):
         # 'model' as a specific combination of hyperparamters regardless of the
         # specific architecture that is used. Below, a model is a specific
         # model architecture (i.e. combination of layers).
-        if (args.model == "simple"):
+        if (args.model == "simple" or args.model == "twolayer"):
             # The 'model'-variable here is the actual application of a certain
             # architecture with a fixed set of hyperparameters. So this is the
             # actual model in the most specific sense.
-            model = CNN_Simple(max_features=args.max_features,
-                               embedding_dim=args.embed,
-                               seqlen=args.seqlen,
-                               nb_filter=args.nb_filter,
-                               filter_size=m[0],
-                               activation=m[2],
-                               dropout_p=m[1],
-                               l1reg=args.l1, l2reg=args.l2,
-                               batchnorm=args.batchnorm,
-                               verbosity=verbose)
-        elif (args.model == "twolayer"):
-            model = CNN_TwoLayer(max_features=args.max_features,
-                                 embedding_dim=args.embed,
-                                 seqlen=args.seqlen,
-                                 nb_filter=args.nb_filter,
-                                 filter_size=m[0],
-                                 activation=m[2],
-                                 dropout_p=m[1],
-                                 l1reg=args.l1, l2reg=args.l2,
-                                 batchnorm=args.batchnorm,
-                                 verbosity=verbose)
+            parameters = {
+                "max_features": args.max_features,
+                "embedding_dim": args.embed,
+                "seqlen": args.seqlen,
+                "nb_filter": args.nb_filter,
+                "filter_size": m[0],
+                "activation": m[2],
+                "dropout_p": m[1],
+                "l1reg": args.l1,
+                "l2reg": args.l2,
+                "batchnorm": args.batchnorm,
+                "verbosity": verbose
+            }
         elif (args.model == "parallel"):
-            model = CNN_Parallel(max_features=args.max_features,
-                                 embedding_dim=args.embed,
-                                 seqlen=args.seqlen,
-                                 nb_filter=args.nb_filter,
-                                 filter_widths=args.filter_widths,
-                                 activation=m[1],
-                                 dropout_p=m[0],
-                                 l1reg=args.l1, l2reg=args.l2,
-                                 batchnorm=args.batchnorm,
-                                 verbosity=verbose)
+            parameters = {
+                "max_features": args.max_features,
+                "embedding_dim": args.embed,
+                "seqlen": args.seqlen,
+                "nb_filter": args.nb_filter,
+                "filter_widths": args.filter_widths,
+                "activation": m[1],
+                "dropout_p": m[0],
+                "l1reg": args.l1,
+                "l2reg": args.l2,
+                "batchnorm": args.batchnorm,
+                "verbosity": verbose
+            }
         else:
             print("No valid architecture: " + str(args.model))
-        print(model.summary())
         # If there is no --dry switch -> proceed to train actual models.
         if (args.dry is False):
             print("selected " + str(args.kfold) + "-fold (cross-)val")
             # k should be equal to args.kfold in any case :)
             k = len(folds)
+            # Create k separate model instances so there is no overlap in
+            # information
+            if args.model == "simple":
+                instances = [CNN_Simple(parameters) for j in range(0, k)]
+            elif args.model == "twolayer":
+                instances = [CNN_TwoLayer(parameters) for j in range(0, k)]
+            elif args.model == "parallel":
+                instances = [CNN_Parallel(parameters) for j in range(0, k)]
             # Dataframe to store the metrics, will  be printed later
             metrics = pd.DataFrame(index=range(1, k+1),
                                    columns=('loss', 'val', 'AUC'))
@@ -693,26 +723,27 @@ if (query_yes_no("Do you wish to continue?")):
                 X_train, X_test = X[folds[j-1][0]], X[folds[j-1][1]]
                 y_train, y_test = y[folds[j-1][0]], y[folds[j-1][1]]
                 print("\n")
-                model.train(X_train, y_train, X_test, y_test, val=True,
-                            opt=args.opt, nb_epoch=args.epochs)
+                print(instances[j-1].summary())
+                instances[j-1].train(X_train, y_train, X_test, y_test,
+                                     val=True, opt=args.opt,
+                                     nb_epoch=args.epochs)
                 # Receiver operating characteristic and Area under Curve.
                 # Calculate it first and store in a variable, then print
                 # the value to stdout.
-                y_score = model.nn.predict(X_test)
+                y_score = instances[j-1].nn.predict_classes(X_test, verbose=0)
                 fpr, tpr, roc_auc = vis.roc_auc(y_test, y_score)
                 if (verbose > 0):
                     print('\nAUC: %f' % roc_auc)
                 # Save Loss, Validation accuracy, and AUC to the dataframe.
-                metrics.loc[j, ] = (model.nn.evaluate(X_test, y_test)[0],
-                                    model.nn.evaluate(X_test, y_test)[1],
-                                    roc_auc)
+                evalu = instances[j-1].nn.evaluate(X_test, y_test, verbose=0)
+                metrics.loc[j, ] = (evalu[0], evalu[1], roc_auc)
                 # Print Confusion Matrix if wanted
                 if (args.cm is True):
-                    vis.print_cm(model.nn, X_test, y_test)
+                    vis.print_cm(instances[j-1].nn, X_test, y_test)
                 # Create plots
                 if (args.plot is True):
                     # This function will print validation and loss over epochs
-                    vis.plot_history(figs[j*2-2], model.fitted)
+                    vis.plot_history(figs[j*2-2], instances[j-1].fitted)
                     # This function will plot the ROC curve
                     vis.plot_roc(figs[j*2-1], fpr, tpr, roc_auc)
                     # Making sure we have all the plots alternating as well,
