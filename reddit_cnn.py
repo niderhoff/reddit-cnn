@@ -761,7 +761,7 @@ if (query_yes_no("Do you wish to continue?")):
                 vis.multipage(o + "-outputs.pdf")
                 # Call keras function to save a graph of the model architecture
                 # to a different file
-                vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
+                # vis.plot_nn_graph(model.nn, to_file=o + "-model.png")
                 # Possibility to save a table of the validation/loss history
                 # over all epochs to a file. This function is outdated and also
                 # it is basically the same data as in the graphs that were
