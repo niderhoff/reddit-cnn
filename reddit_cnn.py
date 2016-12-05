@@ -345,7 +345,7 @@ out_default = "output/" + time.strftime("%Y%m%d-%H%M%S")
 parser.add_argument('-v', '--verbose', default=2, type=int,
                     help='verbosity between 0 and 3 (default: 2)')
 parser.add_argument('-f', '--outfile', default=out_default,
-                    help='file to output results to (default: None)')
+                    help='file to output results to (default: Current Time)')
 parser.add_argument('-l', '--logfile', default=out_default,
                     help='logfile for all output')
 # TODO: add option to disable log file
@@ -767,6 +767,9 @@ if (query_yes_no("Do you wish to continue?")):
                 # it is basically the same data as in the graphs that were
                 # created above.
                 # vis.print_history(model.fitted, to_file=o + "-history.txt")
+            if (args.outfile is not None):
+                np.savez(str(args.outfile) + "-model", instances, metrics,
+                         figs)
         print("------------------------------------------------------")
 print("======================================================")
 
