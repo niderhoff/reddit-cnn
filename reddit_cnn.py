@@ -722,7 +722,7 @@ if (query_yes_no("Do you wish to continue?")):
                 # Get train and test data for current CV fold and train model.
                 X_train, X_test = X[folds[j-1][0]], X[folds[j-1][1]]
                 y_train, y_test = y[folds[j-1][0]], y[folds[j-1][1]]
-                print("\n")
+                print("\n Running fold " + str(j))
                 print(instances[j-1].summary())
                 instances[j-1].train(X_train, y_train, X_test, y_test,
                                      val=True, opt=args.opt,
