@@ -590,7 +590,7 @@ if (args.bench is True):
             print("Learning rate: eta = 1.0 / (alpha * (t + t0))")
             print("All classes are supposed to have weight 1.")
             print("Using default 3-fold Crossvalidation.")
-    if (args.dry is "fals"):
+    if (args.dry is False):
         val, predict = svm_train(X_train, y_train, X_test, y_test)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
         metrics.append([val, fpr, tpr, roc_auc])
