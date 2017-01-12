@@ -568,9 +568,13 @@ if (args.bench is True):
             print("Using default 3-fold Crossvalidation.")
     if (args.dry is "Fale"):
         # gridserach first or cv firsT?
-        val, predict = nb_train(X_train, y_train, X_test, y_test)
+        val, predict = nb_train(X_train, y_train, X_test, y_test, cv=folds)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics.append([val, fpr, tpr, roc_auc])
+        metrics['val'].append(val)
+        metrics['fpr'].append(fpr)
+        metrics['tpr'].append(tpr)
+        metrics['roc_auc'].append(roc_auc)
+        metrics['predict'].append(predict)
         if (verbose > 0):
             print("\nPredictions: " + str(predict))
             print("Validation accuracy: " + str(val))  # TODO: falsch
@@ -591,9 +595,13 @@ if (args.bench is True):
             print("All classes are supposed to have weight 1.")
             print("Using default 3-fold Crossvalidation.")
     if (args.dry is False):
-        val, predict = svm_train(X_train, y_train, X_test, y_test)
+        val, predict = svm_train(X_train, y_train, X_test, y_test, cv=k)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics.append([val, fpr, tpr, roc_auc])
+        metrics['val'].append(val)
+        metrics['fpr'].append(fpr)
+        metrics['tpr'].append(tpr)
+        metrics['roc_auc'].append(roc_auc)
+        metrics['predict'].append(predict)
         if (verbose > 0):
             print("\nPredictions: " + str(predict))
             print("Validation accuracy: " + str(val))  # TODO: falsch

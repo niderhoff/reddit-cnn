@@ -48,10 +48,10 @@ def lr_train(X_train, y_train, val=True, validation_data=None, type='skl',
 
 
 # Naive Bayes Classifier
-def nb_train(X_train, y_train, X_test, y_test, verbose=1):
+def nb_train(X_train, y_train, X_test, y_test, verbose=1, cv=3):
     parameters = {'alpha': (1e-2, 1e-3, 1e-4), 'fit_prior': (True, False)}
     clf = MultinomialNB()
-    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1)
+    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1, cv=cv)
     gs_clf.fit(X_train, y_train.ravel())
     predicted = gs_clf.predict(X_test)
     val = np.mean(predicted == y_test)
@@ -59,12 +59,12 @@ def nb_train(X_train, y_train, X_test, y_test, verbose=1):
 
 
 # SVM benchmark
-def svm_train(X_train, y_train, X_test, y_test):
+def svm_train(X_train, y_train, X_test, y_test, cv=3):
     parameters = {'alpha': (1e-2, 1e-3, 1e-4),
                   'penalty': ('l1', 'l2', 'elasticnet'),
                   'n_iter': (5, 10)}
     clf = SGDClassifier(loss='hinge')
-    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1)
+    gs_clf = GridSearchCV(clf, parameters, n_jobs=-1, cv=cv)
     gs_clf.fit(X_train, y_train.ravel())
     predicted = gs_clf.predict(X_test)
     val = np.mean(predicted == y_test)
