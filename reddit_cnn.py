@@ -493,8 +493,8 @@ if (args.bench is True):
         # This will also return the predictions to make sure the model doesn't
         # just predict one class only (-> imbalanced dataset problem)
 
-        metrics = {'val': [], 'fpr': [], 'tpr': [], 'roc_auc': [],
-                   'predict': []}
+        lr_metrics = {'val': [], 'fpr': [], 'tpr': [], 'roc_auc': [],
+                      'predict': []}
         for j in folds:
             X_train, X_test = X[j[0]], X[j[1]]
             y_train, y_test = y[j[0]], y[j[1]]
@@ -504,15 +504,15 @@ if (args.bench is True):
             print(predict)
             val = np.mean(predict == y_test)
             fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-            metrics['val'].append(val)
-            metrics['fpr'].append(fpr)
-            metrics['tpr'].append(tpr)
-            metrics['roc_auc'].append(roc_auc)
-            metrics['predict'].append(predict)
+            lr_metrics['val'].append(val)
+            lr_metrics['fpr'].append(fpr)
+            lr_metrics['tpr'].append(tpr)
+            lr_metrics['roc_auc'].append(roc_auc)
+            lr_metrics['predict'].append(predict)
         if (verbose > 0):
             print("Validation accuracy avg: " + str(
-                  np.mean(metrics['val'][0:2])))
-            print('AUC avg: %f' % np.mean(metrics['roc_auc'][0:2]))
+                  np.mean(lr_metrics['val'][0:2])))
+            print('AUC avg: %f' % np.mean(lr_metrics['roc_auc'][0:2]))
         print("------------------------------------------------------")
 
         # A simple logistic regression from Keras library
@@ -525,15 +525,15 @@ if (args.bench is True):
             print(predict)
             val = np.mean(predict == y_test)
             fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-            metrics['val'].append(val)
-            metrics['fpr'].append(fpr)
-            metrics['tpr'].append(tpr)
-            metrics['roc_auc'].append(roc_auc)
-            metrics['predict'].append(predict)
+            lr_metrics['val'].append(val)
+            lr_metrics['fpr'].append(fpr)
+            lr_metrics['tpr'].append(tpr)
+            lr_metrics['roc_auc'].append(roc_auc)
+            lr_metrics['predict'].append(predict)
         if (verbose > 0):
             print("Validation accuracy avg: " + str(
-                  np.mean(metrics['val'][3:6])))
-            print('AUC avg: %f' % np.mean(metrics['roc_auc'][3:6]))
+                  np.mean(lr_metrics['val'][3:6])))  # die zahlen noch..
+            print('AUC avg: %f' % np.mean(lr_metrics['roc_auc'][3:6]))
         print("------------------------------------------------------")
 
         # Keras logreg with l1 and l2 regularization
@@ -546,15 +546,15 @@ if (args.bench is True):
             print(predict)
             val = np.mean(predict == y_test)
             fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-            metrics['val'].append(val)
-            metrics['fpr'].append(fpr)
-            metrics['tpr'].append(tpr)
-            metrics['roc_auc'].append(roc_auc)
-            metrics['predict'].append(predict)
+            lr_metrics['val'].append(val)
+            lr_metrics['fpr'].append(fpr)
+            lr_metrics['tpr'].append(tpr)
+            lr_metrics['roc_auc'].append(roc_auc)
+            lr_metrics['predict'].append(predict)
         if (verbose > 0):
             print("Validation accuracy avg: " + str(
-                  np.mean(metrics['val'][6:9])))
-            print('AUC avg: %f' % np.mean(metrics['roc_auc'][6:9]))
+                  np.mean(lr_metrics['val'][6:9])))  # die zahlen noch
+            print('AUC avg: %f' % np.mean(lr_metrics['roc_auc'][6:9]))
     print("======================================================")
 
 # ---------- Naive Bayes benchmark ----------
@@ -565,19 +565,23 @@ if (args.bench is True):
             print("Tuning with GridSearchCV and parameters " +
                   "{'alpha': (1e-2, 1e-3, 1e-4), 'fit_prior': (True, False)")
             print("Class priors are adjusted according to data.")
-            print("Using default 3-fold Crossvalidation.")
-    if (args.dry is "Fale"):
+            # print("Using default 3-fold Crossvalidation.")
+    if (args.dry is False):
+        nb_metrics = {'val': [], 'fpr': [], 'tpr': [], 'roc_auc': [],
+                      'predict': []}
         # gridserach first or cv firsT?
-        val, predict = nb_train(X_train, y_train, X_test, y_test, cv=folds)
+        val, predict, cvresults = nb_train(X_train, y_train, X_test, y_test,
+                                           cv=k)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics['val'].append(val)
-        metrics['fpr'].append(fpr)
-        metrics['tpr'].append(tpr)
-        metrics['roc_auc'].append(roc_auc)
-        metrics['predict'].append(predict)
+        nb_metrics['val'].append(cvresults)
+        nb_metrics['val'].append(val)
+        nb_metrics['fpr'].append(fpr)
+        nb_metrics['tpr'].append(tpr)
+        nb_metrics['roc_auc'].append(roc_auc)
+        nb_metrics['predict'].append(predict)
         if (verbose > 0):
             print("\nPredictions: " + str(predict))
-            print("Validation accuracy: " + str(val))  # TODO: falsch
+            print("Validation accuracy: " + str(val))
             print('AUC: %f' % roc_auc)
     print("======================================================")
 
@@ -593,18 +597,22 @@ if (args.bench is True):
                   " after each epoch.")
             print("Learning rate: eta = 1.0 / (alpha * (t + t0))")
             print("All classes are supposed to have weight 1.")
-            print("Using default 3-fold Crossvalidation.")
+            # print("Using default 3-fold Crossvalidation.")
     if (args.dry is False):
-        val, predict = svm_train(X_train, y_train, X_test, y_test, cv=k)
+        svm_metrics = {'val': [], 'fpr': [], 'tpr': [], 'roc_auc': [],
+                       'predict': []}
+        val, predict, cvresults = svm_train(X_train, y_train, X_test, y_test,
+                                            cv=k)
         fpr, tpr, roc_auc = vis.roc_auc(y_test, predict)
-        metrics['val'].append(val)
-        metrics['fpr'].append(fpr)
-        metrics['tpr'].append(tpr)
-        metrics['roc_auc'].append(roc_auc)
-        metrics['predict'].append(predict)
+        svm_metrics['val'].append(cvresults)
+        svm_metrics['val'].append(val)
+        svm_metrics['fpr'].append(fpr)
+        svm_metrics['tpr'].append(tpr)
+        svm_metrics['roc_auc'].append(roc_auc)
+        svm_metrics['predict'].append(predict)
         if (verbose > 0):
             print("\nPredictions: " + str(predict))
-            print("Validation accuracy: " + str(val))  # TODO: falsch
+            print("Validation accuracy: " + str(val))
             print('AUC: %f' % roc_auc)
     print("======================================================")
 
@@ -618,7 +626,7 @@ if (args.bench is True):
 
     if (args.plot is True):
         # metrics 5x4 list with val, fpr, tpr, roc_auc
-        for k in metrics:
+        for k in lr_metrics:
             # TODO: we can only do this for 4/5 benchmarks so we have to
             # think of a way to handle this.
             # vis.plot_history(plt.figure(), k[0])
@@ -720,8 +728,8 @@ if (query_yes_no("Do you wish to continue?")):
             elif args.model == "parallel":
                 instances = [CNN_Parallel(parameters) for j in range(0, k)]
             # Dataframe to store the metrics, will  be printed later
-            metrics = pd.DataFrame(index=range(1, k+1),
-                                   columns=('loss', 'val', 'AUC'))
+            cnn_metrics = pd.DataFrame(index=range(1, k+1),
+                                       columns=('loss', 'val', 'AUC'))
             # List to store all the plots that will be created. In case we
             # create other plots on the side later (not currently implemented)
             # we can use this list to only store the important plots to PDF.
@@ -744,7 +752,7 @@ if (query_yes_no("Do you wish to continue?")):
                     print('\nAUC: %f' % roc_auc)
                 # Save Loss, Validation accuracy, and AUC to the dataframe.
                 evalu = instances[j-1].nn.evaluate(X_test, y_test, verbose=0)
-                metrics.loc[j, ] = (evalu[0], evalu[1], roc_auc)
+                cnn_metrics.loc[j, ] = (evalu[0], evalu[1], roc_auc)
                 # Print Confusion Matrix if wanted
                 if (args.cm is True):
                     vis.print_cm(instances[j-1].nn, X_test, y_test)
@@ -759,9 +767,9 @@ if (query_yes_no("Do you wish to continue?")):
                     # before the next CV-fold starts.
             # Print table of loss/validation accuracies  and averages
             print("\nLoss and validation accuracies for all folds:\n")
-            print(metrics)
+            print(cnn_metrics)
             print("\naveraged values ")
-            print(np.mean(metrics))
+            print(np.mean(cnn_metrics))
             if (args.plot is True):
                 o = str(args.outfile)
                 # All plots that have been created so far and are hovering
@@ -776,8 +784,8 @@ if (query_yes_no("Do you wish to continue?")):
                 # created above.
                 # vis.print_history(model.fitted, to_file=o + "-history.txt")
             if (args.outfile is not None):
-                np.savez(str(args.outfile) + "-model", instances, metrics,
-                         figs)
+                np.savez(str(args.outfile) + "-model", instances, cnn_metrics,
+                         lr_metrics, nb_metrics, svm_metrics, figs)
         print("------------------------------------------------------")
 print("======================================================")
 

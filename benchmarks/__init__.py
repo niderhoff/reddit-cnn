@@ -53,9 +53,17 @@ def nb_train(X_train, y_train, X_test, y_test, verbose=1, cv=3):
     clf = MultinomialNB()
     gs_clf = GridSearchCV(clf, parameters, n_jobs=-1, cv=cv)
     gs_clf.fit(X_train, y_train.ravel())
+    cvresults = []
+    if isinstance(cv, (int, long)):
+        x = cv
+    else:
+        x = len(cv)
+    for i in range(0, x):
+        splitstr = "split" + str(i) + "_test_score"
+        cvresults.append(gs_clf.cv_results_[splitstr][gs_clf.best_index_])
     predicted = gs_clf.predict(X_test)
     val = np.mean(predicted == y_test)
-    return val, predicted
+    return val, predicted, cvresults
 
 
 # SVM benchmark
@@ -66,9 +74,17 @@ def svm_train(X_train, y_train, X_test, y_test, cv=3):
     clf = SGDClassifier(loss='hinge')
     gs_clf = GridSearchCV(clf, parameters, n_jobs=-1, cv=cv)
     gs_clf.fit(X_train, y_train.ravel())
+    cvresults = []
+    if isinstance(cv, (int, long)):
+        x = cv
+    else:
+        x = len(cv)
+    for i in range(0, x):
+        splitstr = "split" + str(i) + "_test_score"
+        cvresults.append(gs_clf.cv_results_[splitstr][gs_clf.best_index_])
     predicted = gs_clf.predict(X_test)
     val = np.mean(predicted == y_test)
-    return val, predicted
+    return val, predicted, cvresults
 
 
 # Simple ANN Benchmarks
