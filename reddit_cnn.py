@@ -639,6 +639,10 @@ if (args.bench is True):
         # Close all plots so they won't appear in next file.
         plt.close('all')
 
+    if (args.outfile is not None):
+        np.savez(str(args.outfile) + "-bench",
+                 lr_metrics, nb_metrics, svm_metrics)
+
 
 # ---------- Convolutional Neural Network ----------
 if (verbose > 0):
