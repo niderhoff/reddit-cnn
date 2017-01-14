@@ -60,7 +60,7 @@ w_size_all = {
         "100kall"
     ],
     'files': [
-        "??",
+        "20170014-144154",
         "20170014-141341",
         "20170014-140306",
         "20170114-134905"
@@ -78,45 +78,55 @@ w_minlen_50k = {
     ]
 }
 
-w = w_size_rnd
 
-# LR metrics
-val_m, val_var, roc_aucs = [], [], []
-for npz in w['files']:
-    f = np.load("output/" + npz + "-bench.npz")
-    lr_metrics = f['arr_0'].item()
+def create_table(w):
+    val_skl_m, val_skl_v, val_k1_m, val_k1_v, val_k2_m, val_k2_v, val_nb, \
+        val_svm = [], [], [], [], [], [], [], []
+    auc_skl_m, auc_k1_m, auc_k2_m, auc_nb, auc_svm = [], [], [], [], []
+    auc_skl_v, auc_k1_v, auc_k2_v = [], [], []
+    for npz in w['files']:
+        f = np.load("output/" + npz + "-bench.npz")
+        lr_metrics = f['arr_0'].item()
+        svm_metrics = f['arr_2'].item()
+        nb_metrics = f['arr_1'].item()
+        # lr method sklearn
+        val_skl_m.append(np.mean(lr_metrics['val'][0:10]))
+        val_skl_v.append(np.var(lr_metrics['val'][0:10]))
+        auc_skl_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_skl_v.append(np.var(lr_metrics['roc_auc'][0:10]))
+        # lr method keras1
+        val_k1_m.append(np.mean(lr_metrics['val'][10:20]))
+        val_k1_v.append(np.var(lr_metrics['val'][10:20]))
+        auc_k1_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_k1_v.append(np.var(lr_metrics['roc_auc'][0:10]))
+        # lr method keras2
+        val_k2_m.append(np.mean(lr_metrics['val'][20:30]))
+        val_k2_v.append(np.var(lr_metrics['val'][20:30]))
+        auc_k2_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_k2_v.append(np.var(lr_metrics['roc_auc'][0:10]))
+        # NB
+        val_nb.append(nb_metrics['val'][1])
+        auc_nb.append(nb_metrics['roc_auc'][0])
+        # SVM
+        val_svm.append(svm_metrics['val'][1])
+        auc_svm.append(svm_metrics['roc_auc'][0])
+    table = zip(w['names'], val_skl_m, val_k1_m, val_k2_m, val_nb, val_svm)
+    # add: varianz in klammern (GEIL!)
+    print(tabulate(
+        table,
+        tablefmt="latex_booktabs",
+        headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
+    ))
+    table = zip(w['names'], auc_skl_m, auc_k1_m, auc_k2_m, auc_nb, auc_svm)
+    print(tabulate(
+        table,
+        tablefmt="latex_booktabs",
+        headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
+    ))
 
-    # lr method sklearn
-    val_skl_m = np.mean(lr_metrics['val'][0:10])
-    val_skl_v = np.var(lr_metrics['val'][0:10])
-    # lr method keras1
-    val_k1_m = np.mean(lr_metrics['val'][10:20])
-    val_k1_v = np.var(lr_metrics['val'][10:20])
-    # lr method keras2
-    val_k2_m = np.mean(lr_metrics['val'][20:30])
-    val_k2_v = np.var(lr_metrics['val'][20:30])
-
-    val_m.append(val_skl_m)
-
-    # wie sortier ichd as??
-
+create_table(w_size_rnd)
 
 # NB metrics
-val, roc_aucs = [], []
-for npz in w['files']:
-    f = np.load("output/" + npz + "-bench.npz")
-    lr_metrics = f['arr_0'].item()
-    nb_metrics = f['arr_1'].item()
-    svm_metrics = f['arr_2'].item()
-    val.append(nb_metrics['val'][1])
-    roc_aucs.append(nb_metrics['roc_auc'][0])
-
-table = zip(w['names'], val, roc_aucs)
-print(tabulate(
-    table,
-    tablefmt="latex_booktabs",
-    headers=['Sample', 'Validation Accuracy', 'AUC']
-))
 # # calculate fold average here
 # val = nb_metrics['val'][1]  # average??
 # fpr = nb_metrics['fpr'][0]
