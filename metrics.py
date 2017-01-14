@@ -36,7 +36,7 @@ from tabulate import tabulate
 # }
 
 # first by sample size
-w_size = {
+w_size_rnd = {
     'names': [
         "10krnd",
         "30krnd",
@@ -51,7 +51,23 @@ w_size = {
     ]
 }
 
-w = w_size
+# same for 1 subreddit (android)
+w_size_all = {
+    'names': [
+        "10kall",
+        "30kall",
+        "50kall",
+        "100kall"
+    ],
+    'files': [
+        "??",
+        "??",
+        "??",
+        "??"
+    ]
+}
+
+w = w_size_rnd
 
 # LR metrics
 val_m, val_var, roc_aucs = [], [], []
