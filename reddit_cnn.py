@@ -789,7 +789,7 @@ if (query_yes_no("Do you wish to continue?")):
                 # vis.print_history(model.fitted, to_file=o + "-history.txt")
             if (args.outfile is not None):
                 np.savez(str(args.outfile) + "-model", instances, cnn_metrics,
-                         lr_metrics, nb_metrics, svm_metrics, figs)
+                         figs)
         print("------------------------------------------------------")
 print("======================================================")
 

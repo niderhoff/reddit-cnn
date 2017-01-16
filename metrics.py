@@ -67,19 +67,106 @@ w_size_all = {
     ]
 }
 
-w_minlen_50k = {
+# -----------------------------------------------------
+
+# min length effect
+w_minmax_mix_rnd = {
     'names': [
-        "50krnd_minlen_ran-12",
-        "50krnd_minlen_ran03",
-        "50krnd_minlen_ran-555"
+        "50krnd_minlen",
+        "50krnd_maxlen",
+        "50krnd_minmax",
+        "50kall_minlen",
+        "50kall_maxlen",
+        "50kall_minmax"
     ],
     'files': [
-        ""
+        "20170113-141209",
+        "20170113-130509",
+        "20170113-150447",
+        "20170114-170906",
+        "20170114-172358",
+        "20170114-161409"
     ]
 }
 
+w_minlen_rnd = {
+    'names': [
+        "10krnd_minlen",
+        "30krnd_minlen",
+        "30krnd_minlen (SMOTE)",
+        "50krnd_minlen",
+        "100krnd_minlen"
+    ],
+    'files': [
+        "20170113-115212",
+        "20170113-121330",
+        "20170113-121543",
+        "20170113-141209",
+        "20170114-180138"
+    ]
+}
 
-def create_table(w):
+w_minlen_all = {
+    'names': [
+        "10kall_minlen",
+        "10kall_maxlen",
+        "30kall_minlen",
+        "30kall_maxlen",
+        "50kall_minlen",
+        "50kall_maxlen",
+        "100kall_minlen",
+        "100kall_maxlen"
+    ],
+    'files': [
+        "20170014-144154",
+        "20170014-141341",
+        "20170014-140306",
+        "20170114-134905"
+    ]
+}
+
+# -----------------------------------------------------
+
+
+# range effect
+w_ran_mix = {
+    'names': [
+        "50krnd_ran-12*",
+        "50krnd_ran03",
+        "100kall_ran-12",
+        "100kall_ran03",
+    ],
+    'files': [
+        "20170113-151134",
+        "20170113-153943",
+        "20170114-181604",
+        "20170114-185646"
+    ]
+}
+
+# -----------------------------------------------------
+
+
+def create_table_cnn(w):
+    val_cnn_m, val_cnn_v = [], []
+    auc_cnn_m, auc_cnn_v = [], []
+    for npz in w['files']:
+        f = np.load("output/" + npz + "-model.npz")
+        cnn_metrics = f['arr_1'][0]
+        val_cnn_m.append(np.mean(cnn_metrics)[1])
+        val_cnn_v.append(np.var(cnn_metrics)[1])
+        auc_cnn_m.append(np.mean(cnn_metrics)[2])
+        auc_cnn_v.append(np.var(cnn_metrics)[2])
+    table = zip(w['names'], val_cnn_m, val_cnn_v, auc_cnn_m, auc_cnn_v)
+    print(tabulate(
+        table,
+        tablefmt="latex_booktabs",
+        floatfmt=".3f",
+        headers=['Sample', 'Mean Acc.', 'Var. Acc.', 'Mean AUC', 'Var. AUC']
+    ))
+
+
+def create_table_bench(w):
     val_skl_m, val_skl_v, val_k1_m, val_k1_v, val_k2_m, val_k2_v, val_nb, \
         val_svm = [], [], [], [], [], [], [], []
     auc_skl_m, auc_k1_m, auc_k2_m, auc_nb, auc_svm = [], [], [], [], []
@@ -115,16 +202,18 @@ def create_table(w):
     print(tabulate(
         table,
         tablefmt="latex_booktabs",
+        floatfmt=".3f",
         headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
     ))
     table = zip(w['names'], auc_skl_m, auc_k1_m, auc_k2_m, auc_nb, auc_svm)
     print(tabulate(
         table,
         tablefmt="latex_booktabs",
+        floatfmt=".3f",
         headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
     ))
 
-create_table(w_size_rnd)
+create_table_bench(w_ran_mix)
 
 # NB metrics
 # # calculate fold average here
