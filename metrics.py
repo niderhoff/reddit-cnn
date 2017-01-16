@@ -4,37 +4,6 @@
 import numpy as np
 from tabulate import tabulate
 
-# d_lens = ["10k", "30k", "50k", "100k"]
-# d_mod = ["all", "rnd"]
-# d_types = ["maxlen",
-#            "minlen_ran-12", "minlen_ran-55", "minlen_ran03",
-#            "minlen",
-#            "minlen5_ran-55", "minlen5_ran03", "minlen5_ran-12",
-#            "minlen5",
-#            "minmax",
-#            "minmax_ran-55", "minmax_ran03", "minmax_ran-12",
-#            "minmax5",
-#            "ran-12", "ran03", "ran-55"]
-#
-# names = zip(list(product(*[d_lens, d_mod, d_types])))
-
-# w = {
-#     'names': [
-#         "50krnd_minlen.npz",
-#         "50krnd_minlen5_ran-55.npz",
-#         "50krnd_minlen5_ran03.npz",
-#         "50krnd_minlen5.npz",
-#         "50krnd_minmax_ran-12.npz"
-#     ],
-#     'files': [
-#         "20170113-141209",
-#         "20170113-141446",
-#         "20170113-142333",
-#         "20170113-143017",
-#         "20170113-143309"
-#     ]
-# }
-
 # first by sample size
 w_size_rnd = {
     'names': [
@@ -60,9 +29,9 @@ w_size_all = {
         "100kall"
     ],
     'files': [
-        "20170014-144154",
-        "20170014-141341",
-        "20170014-140306",
+        "20170114-144154",
+        "20170114-141341",
+        "20170114-140306",
         "20170114-134905"
     ]
 }
@@ -118,10 +87,14 @@ w_minlen_all = {
         "100kall_maxlen"
     ],
     'files': [
-        "20170014-144154",
-        "20170014-141341",
-        "20170014-140306",
-        "20170114-134905"
+        "20170116-201214",
+        "20170116-201440",
+        "20170116-201440",
+        "20170116-202045",
+        "20170114-170906",
+        "20170114-172358",
+        "20170113-190343",
+        "20170113-160702"
     ]
 }
 
@@ -213,7 +186,13 @@ def create_table_bench(w):
         headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
     ))
 
-create_table_bench(w_ran_mix)
+# create_table_bench(w_size_all)
+# create_table_bench(w_size_rnd)
+# create_table_bench(w_minlen_rnd)
+# create_table_bench(w_minmax_mix_rnd)
+create_table_bench(w_minlen_all)
+# create_table_bench(w_ran_mix)
+
 
 # NB metrics
 # # calculate fold average here
