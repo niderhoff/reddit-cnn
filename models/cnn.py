@@ -176,7 +176,7 @@ class CNN_TwoLayer(object):
             self.fitted = self.nn.fit(X_train, y_train, batch_size=batch_size,
                                       nb_epoch=nb_epoch)
 
-
+# old version (obsolete):
 # class CNN_TwoLayer(object):
 #     # INPUT -> [CONV -> RELU -> POOL]*2 -> FC
 #     def __init__(self,  **settings):

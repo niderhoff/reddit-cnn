@@ -1,4 +1,6 @@
-# benchmark metrics
+# benchmark metrics script (not part of the actual code for the CNN)
+# it is merely used to produce some tables used in the paper
+# this file is work in progress
 
 # from itertools import product
 import numpy as np
@@ -171,7 +173,7 @@ def create_table_bench(w):
         val_svm.append(svm_metrics['val'][1])
         auc_svm.append(svm_metrics['roc_auc'][0])
     table = zip(w['names'], val_skl_m, val_k1_m, val_k2_m, val_nb, val_svm)
-    # add: varianz in klammern (GEIL!)
+    # add: varianz in klammern(?)
     print(tabulate(
         table,
         tablefmt="latex_booktabs",
@@ -195,7 +197,7 @@ create_table_bench(w_minlen_all)
 
 
 # NB metrics
-# # calculate fold average here
+# # calculate cv fold average here
 # val = nb_metrics['val'][1]  # average??
 # fpr = nb_metrics['fpr'][0]
 # tpr = nb_metrics['tpr'][0]
