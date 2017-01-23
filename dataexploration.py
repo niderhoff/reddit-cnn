@@ -5,7 +5,6 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 from collections import Counter
 
-sns.set_style("whitegrid")
 sns.set_style("ticks")
 sns.set_color_codes("pastel")
 # _, x, y = np.loadtxt("subreddit_wpc.txt", dtype={
@@ -32,20 +31,26 @@ raw_corpus, corpus, labels, strata = (corpora['raw_corpus'],
                                       corpora['corpus'],
                                       corpora['labels'],
                                       corpora['strata'])
-f, ax = plt.subplots(figsize=(8, 6))
-bins = np.linspace(-20, 60, 80)
-sns.distplot(labels, bins=bins, kde=False, rug=False)
-ax.set_xlim([-20, 20])
-ax.set_ylim([0, 22000])
-sns.despine(right=True, top=True)
-f.savefig('labels_hist.png', dpi=200, bbox_inches='tight')
-
-f, ax = plt.subplots(figsize=(8, 6))
+f, ax = plt.subplots(figsize=(8, 4))
 bins = np.linspace(-50, 450, 100)
-sns.distplot(labels, bins=bins, kde=False, rug=False)
+sns.distplot(pd.Series(labels, name="Comment score"), bins=bins, kde=False)
 sns.despine(right=True, top=True)
 ax.set_yscale('log')
+ax.set_ylabel("log Frequency")
 ax.set_xlim([-50, 450])
+xticks = np.linspace(-50, 450, 11)
+ax.set_xticks(xticks)
 f.savefig('labels_log.png', dpi=200, bbox_inches='tight')
+
+f, ax = plt.subplots(figsize=(8, 4))
+bins = np.linspace(-20, 60, 80)
+sns.distplot(pd.Series(labels, name="Comment score"), bins=bins, kde=False)
+ax.set_xlim([-20, 20])
+ax.set_ylim([0, 22000])
+yticks = np.linspace(0, 22000, 5)
+ax.set_yticks(yticks)
+ax.set_ylabel("Frequency")
+sns.despine(right=True, top=True)
+f.savefig('labels_hist.png', dpi=200, bbox_inches='tight')
 
 Counter(labels)

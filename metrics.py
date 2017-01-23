@@ -188,11 +188,11 @@ def create_table_bench(w):
         headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
     ))
 
-# create_table_bench(w_size_all)
+create_table_bench(w_size_all)
 # create_table_bench(w_size_rnd)
 # create_table_bench(w_minlen_rnd)
 # create_table_bench(w_minmax_mix_rnd)
-create_table_bench(w_minlen_all)
+# create_table_bench(w_minlen_all)
 # create_table_bench(w_ran_mix)
 
 
