@@ -5,6 +5,7 @@
 # from itertools import product
 import numpy as np
 from tabulate import tabulate
+import pandas as pd
 
 # first by sample size
 w_size_rnd = {
@@ -119,26 +120,72 @@ w_ran_mix = {
     ]
 }
 
+# auch mit RND und vergleichen danke.
+w_all_ran_03 = {
+    'names': [
+        "10kall_ran03",
+        "10kall_ran03 SMOTE",
+        "30kall_ran03",
+        "30kall_ran03 SMOTE",
+        "50kall_ran03",
+        "50kall_ran03 SMOTE",
+        "100kall_ran03",
+        "100kall_ran03 SMOTE"
+    ],
+    'files': [
+        "20170124-115625",
+        "20170124-120011",
+        "20170124-122817",
+        "20170124-123402",
+        "20170124-123745",
+        "20170124-124624",
+        "20170114-185646",
+        "20170124-125647"
+    ]
+}
+
+# -----------------------------------------------------
+# CNN stuff
+index = ['30k', '50k', '100k']
+w_filters = {
+    '3': ["20170124-152930", "", ""],
+    '4': ["20170124-153542", "", ""],
+    '5': ["20170124-162517", "", ""],
+    '6': ["20170124-163247", "20170124-200516", ""],
+    '7': ["20170124-171355", "20170124-194915", ""]
+}
 # -----------------------------------------------------
 
 
-def create_table_cnn(w):
-    val_cnn_m, val_cnn_v = [], []
-    auc_cnn_m, auc_cnn_v = [], []
-    for npz in w['files']:
-        f = np.load("output/" + npz + "-model.npz")
-        cnn_metrics = f['arr_1'][0]
-        val_cnn_m.append(np.mean(cnn_metrics)[1])
-        val_cnn_v.append(np.var(cnn_metrics)[1])
-        auc_cnn_m.append(np.mean(cnn_metrics)[2])
-        auc_cnn_v.append(np.var(cnn_metrics)[2])
-    table = zip(w['names'], val_cnn_m, val_cnn_v, auc_cnn_m, auc_cnn_v)
-    print(tabulate(
-        table,
-        tablefmt="latex_booktabs",
-        floatfmt=".3f",
-        headers=['Sample', 'Mean Acc.', 'Var. Acc.', 'Mean AUC', 'Var. AUC']
-    ))
+def create_table_filter_sizes(w, index):
+    d_val = {}
+    d_auc = {}
+    for i in w:
+        ival = []
+        iauc = []
+        for npz in w[i]:
+            if (npz != ""):
+                f = np.load("output/" + npz + "-model.npz")
+                cnn_metrics = f['arr_1']
+                ival.append(np.nanmean(cnn_metrics, axis=0)[1])
+                iauc.append(np.nanmean(cnn_metrics, axis=0)[2])
+            else:
+                ival.append("NaN")
+                iauc.append("NaN")
+        d_val[i] = ival
+        d_auc[i] = iauc
+    d_val = pd.DataFrame(d_val, index=index)
+    d_auc = pd.DataFrame(d_auc, index=index)
+    print(tabulate(d_val,
+                   tablefmt="latex_booktabs",
+                   floatfmt=".3f",
+                   showindex=True,
+                   headers="keys"))
+    print(tabulate(d_auc,
+                   tablefmt="latex_booktabs",
+                   floatfmt=".3f",
+                   showindex=True,
+                   headers="keys"))
 
 
 def create_table_bench(w):
@@ -152,19 +199,19 @@ def create_table_bench(w):
         svm_metrics = f['arr_2'].item()
         nb_metrics = f['arr_1'].item()
         # lr method sklearn
-        val_skl_m.append(np.mean(lr_metrics['val'][0:10]))
+        val_skl_m.append(np.nanmean(lr_metrics['val'][0:10]))
         val_skl_v.append(np.var(lr_metrics['val'][0:10]))
-        auc_skl_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_skl_m.append(np.nanmean(lr_metrics['roc_auc'][0:10]))
         auc_skl_v.append(np.var(lr_metrics['roc_auc'][0:10]))
         # lr method keras1
-        val_k1_m.append(np.mean(lr_metrics['val'][10:20]))
+        val_k1_m.append(np.nanmean(lr_metrics['val'][10:20]))
         val_k1_v.append(np.var(lr_metrics['val'][10:20]))
-        auc_k1_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_k1_m.append(np.nanmean(lr_metrics['roc_auc'][0:10]))
         auc_k1_v.append(np.var(lr_metrics['roc_auc'][0:10]))
         # lr method keras2
-        val_k2_m.append(np.mean(lr_metrics['val'][20:30]))
+        val_k2_m.append(np.nanmean(lr_metrics['val'][20:30]))
         val_k2_v.append(np.var(lr_metrics['val'][20:30]))
-        auc_k2_m.append(np.mean(lr_metrics['roc_auc'][0:10]))
+        auc_k2_m.append(np.nanmean(lr_metrics['roc_auc'][0:10]))
         auc_k2_v.append(np.var(lr_metrics['roc_auc'][0:10]))
         # NB
         val_nb.append(nb_metrics['val'][1])
@@ -188,13 +235,34 @@ def create_table_bench(w):
         headers=['Sample', 'LR1', 'LR2', 'LR3', 'NB', 'SVM']
     ))
 
-create_table_bench(w_size_all)
+# create_table_bench(w_size_all)
 # create_table_bench(w_size_rnd)
 # create_table_bench(w_minlen_rnd)
 # create_table_bench(w_minmax_mix_rnd)
 # create_table_bench(w_minlen_all)
 # create_table_bench(w_ran_mix)
+# create_table_bench(w_all_ran_03)
 
+create_table_filter_sizes(w_filters, index)
+
+# old stuff
+# def create_table_cnn(w):
+#     val_cnn_m, val_cnn_v = [], []
+#     auc_cnn_m, auc_cnn_v = [], []
+#     for npz in w['files']:
+#         f = np.load("output/" + npz + "-model.npz")
+#         cnn_metrics = f['arr_1'][0]
+#         val_cnn_m.append(np.nanmean(cnn_metrics)[1])
+#         val_cnn_v.append(np.var(cnn_metrics)[1])
+#         auc_cnn_m.append(np.nanmean(cnn_metrics)[2])
+#         auc_cnn_v.append(np.var(cnn_metrics)[2])
+#     table = zip(w['names'], val_cnn_m, val_cnn_v, auc_cnn_m, auc_cnn_v)
+#     print(tabulate(
+#         table,
+#         tablefmt="latex_booktabs",
+#         floatfmt=".3f",
+#         headers=['Sample', 'Mean Acc.', 'Var. Acc.', 'Mean AUC', 'Var. AUC']
+#     ))
 
 # NB metrics
 # # calculate cv fold average here
