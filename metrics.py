@@ -175,10 +175,13 @@ w_filters_minlen = {
     '7': ["20170125-154552", "20170125-155511", "20170125-160925"]
 }
 
-index_minlen5 = ['50kall minlen5', '100kall minlen5']
-w_filters_minlen5 = {
-    '3': ["20170126-205349", "20170126-184026"],
-    '7': ["20170126-210911", "20170126-180551"]
+index_minmax = ['50kall maxlen', '100kall maxlen',
+                '50kall minmax', '100kall minmax']
+w_filters_minmax = {
+    '3': ["20170126-224653", "20170126-225630",
+          "20170126-233205", "20170126-231329"],
+    '7': ["20170127-150346", "20170127-133354",
+          "20170126-234846", "20170127-123951"]
 }
 
 index_minlen_ran = ['100kall 03', '100kall 03 smote',
@@ -302,7 +305,8 @@ def create_table_bench(w):
 # create_table_bench(w_all_ran_03)
 
 # create_table_filter_sizes(w_filters, index)
-create_table_filter_sizes(w_filters_act, index_act)
+# create_table_filter_sizes(w_filters_act, index_act)
+create_table_filter_sizes(w_filters_minmax, index_minmax)
 
 # old stuff
 # def create_table_cnn(w):
