@@ -178,8 +178,33 @@ w_filters_minlen = {
 index_minlen_ran = ['100kall 03', '100kall 03 smote',
                     '100kall minlen 03', '100kall minlen 03 smote']
 w_filters_minlen03 = {
-    '3': ["20170126-111259", "", "20170125-201814", "20170125-205028"],
-    '7': ["20170126-105331", "", "20170125-193923", "20170125-212013"],
+    '3': ["20170126-111259", "20170126-165633",
+          "20170125-201814", "20170125-205028"],
+    '7': ["20170126-105331", "20170126-173117",
+          "20170125-193923", "20170125-212013"],
+}
+
+index_act = ['50kall minlen', '50kall minlen5',
+             '100kall minlen', '100kall minlen5']
+w_filters_act = {
+    '3 relu': ["20170125-175623", "20170126-205349",
+               "20170125-173531", "20170126-184026"],
+    '3 tanh': ["20170126-164338", "20170126-212002",
+               "20170126-114635", "20170126-185833"],
+    '7 relu': ["20170125-155511", "20170126-210911",
+               "20170125-160925", "20170126-180551"],
+    '7 tanh': ["20170126-163023", "20170126-214901",
+               "20170126-120732", "20170126-191858"]
+}
+
+index_opt = ["50kall minlen", "100k all minlen"]
+w_filters_opt = {
+    "3 relu adadelta"
+    "3 tanh adam",
+    "3 tanh adadelta",
+    "7 relu adadelta"
+    "7 tanh adam",
+    "7 tanh adadelta"
 }
 # -----------------------------------------------------
 
@@ -270,8 +295,8 @@ def create_table_bench(w):
 # create_table_bench(w_ran_mix)
 # create_table_bench(w_all_ran_03)
 
-#create_table_filter_sizes(w_filters, index)
-create_table_filter_sizes(w_filters_minlen, index_minlen)
+# create_table_filter_sizes(w_filters, index)
+create_table_filter_sizes(w_filters_act, index_act)
 
 # old stuff
 # def create_table_cnn(w):
