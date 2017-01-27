@@ -175,6 +175,12 @@ w_filters_minlen = {
     '7': ["20170125-154552", "20170125-155511", "20170125-160925"]
 }
 
+index_minlen5 = ['50kall minlen5', '100kall minlen5']
+w_filters_minlen5 = {
+    '3': ["20170126-205349", "20170126-184026"],
+    '7': ["20170126-210911", "20170126-180551"]
+}
+
 index_minlen_ran = ['100kall 03', '100kall 03 smote',
                     '100kall minlen 03', '100kall minlen 03 smote']
 w_filters_minlen03 = {
