@@ -206,14 +206,13 @@ w_filters_act = {
                "20170126-120732", "20170126-191858"]
 }
 
-index_opt = ["50kall minlen", "100k all minlen"]
+index_opt = ["3 relu RMSprop", "3 relu adadelta", "3 relu adam",
+             "7 relu RMSprop", "7 relu adadelta", "7 relu adam"]
 w_filters_opt = {
-    "3 relu adadelta"
-    "3 tanh adam",
-    "3 tanh adadelta",
-    "7 relu adadelta"
-    "7 tanh adam",
-    "7 tanh adadelta"
+    "50kall minlen": ["20170125-175623", "20170126-154119", "",
+                      "20170126-155136", "20170125-155511", ""],
+    "100kall minlen": ["20170125-173531", "20170126-152423", "20170128-163747",
+                       "20170125-160925", "20170126-150416", "20170128-175709"]
 }
 # -----------------------------------------------------
 
@@ -306,7 +305,8 @@ def create_table_bench(w):
 
 # create_table_filter_sizes(w_filters, index)
 # create_table_filter_sizes(w_filters_act, index_act)
-create_table_filter_sizes(w_filters_minmax, index_minmax)
+# create_table_filter_sizes(w_filters_minmax, index_minmax)
+create_table_filter_sizes(w_filters_opt, index_opt)
 
 # old stuff
 # def create_table_cnn(w):
